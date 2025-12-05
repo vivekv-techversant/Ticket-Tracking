@@ -779,7 +779,7 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
                 <td>
                     <div class="capacity-bar-cell">
                         <div class="capacity-bar-bg">
-                            <div class="capacity-bar-fill ${data.statusClass}" style="width: ${data.percentage}%"></div>
+                            ${data.percentage > 0 ? `<div class="capacity-bar-fill ${data.statusClass}" style="width: ${data.percentage}%"></div>` : ''}
                         </div>
                     </div>
                 </td>
