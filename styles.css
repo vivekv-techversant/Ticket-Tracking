@@ -2366,28 +2366,30 @@ form {
 }
 
 .capacity-bar-bg {
-    height: 8px;
-    background: var(--bg-tertiary);
-    border-radius: 4px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
     overflow: hidden;
+    border: 1px solid var(--border-color);
 }
 
 .capacity-bar-fill {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 5px;
     transition: width var(--transition-normal), background var(--transition-normal);
+    min-width: 4px;
 }
 
 .capacity-bar-fill.under {
-    background: var(--gradient-success);
+    background: var(--accent-green);
 }
 
 .capacity-bar-fill.over {
-    background: var(--gradient-danger);
+    background: var(--accent-red);
 }
 
 .capacity-bar-fill.exact {
-    background: var(--gradient-primary);
+    background: var(--accent-cyan);
 }
 
 /* Responsive Design */
