@@ -304,14 +304,15 @@ function renderTicketCard(ticket, week, index) {
     const statusClass = ticket.status.replace(' ', '-');
     const priorityClass = `priority-${ticket.priority}`;
     const carriedClass = ticket.carriedOver ? 'carried-over' : '';
+    const carriedToNextClass = ticket.carriedToNextWeek ? 'carried-to-next' : '';
     
     return `
-        <div class="ticket-card ${statusClass} ${priorityClass} ${carriedClass}" data-index="${index}" data-week="${week}">
+        <div class="ticket-card ${statusClass} ${priorityClass} ${carriedClass} ${carriedToNextClass}" data-index="${index}" data-week="${week}">
             <div class="ticket-header">
                 <span class="ticket-id">${escapeHtml(ticket.ticketId)}</span>
                 <div class="ticket-actions">
-                    ${week === 'current' ? `
-                    <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="Move to Next Week">
+                    ${week === 'current' && !ticket.carriedToNextWeek ? `
+                    <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="Copy to Next Week">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
@@ -353,7 +354,15 @@ function renderTicketCard(ticket, week, index) {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M13 5l7 7-7 7M5 12h14"/>
                         </svg>
-                        Carried
+                        Carried Over
+                    </span>
+                ` : ''}
+                ${ticket.carriedToNextWeek ? `
+                    <span class="carried-to-next-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                        → Next Week
                     </span>
                 ` : ''}
                 ${ticket.reestimationNote ? `
@@ -1072,35 +1081,38 @@ window.moveTicket = function(week, index) {
     // Calculate remaining hours (estimated - actual)
     const remainingHours = Math.max(0, ticket.estimatedHours - ticket.actualHours);
     
-    // Create new ticket for Next Week
-    const movedTicket = {
+    // If no remaining hours, don't create a copy
+    if (remainingHours <= 0) {
+        showToast('No remaining hours to carry over. Ticket is complete!', 'info');
+        return;
+    }
+    
+    // Mark the original ticket as "carried over" (keep it in Current Week)
+    ticket.carriedToNextWeek = true;
+    
+    // Create a COPY of the ticket for Next Week with remaining hours
+    const copiedTicket = {
         id: generateId(),
         ticketId: ticket.ticketId,
         name: ticket.name,
         tester: ticket.tester,
-        estimatedHours: remainingHours > 0 ? remainingHours : ticket.estimatedHours, // Use remaining hours if any work was done
+        estimatedHours: remainingHours, // Remaining hours become the new estimate
         actualHours: 0, // Reset actual hours for the new week
-        status: ticket.actualHours > 0 ? 'nil' : ticket.status, // Reset status if work was done
+        status: 'nil', // Reset status for the new week
         priority: ticket.priority,
-        carriedOver: ticket.actualHours > 0, // Mark as carried over if work was done
-        movedFrom: 'currentWeek',
+        carriedOver: true, // Mark as carried over from previous week
+        carriedFromWeek: 'currentWeek',
         originalTicketId: ticket.id,
         createdAt: new Date().toISOString()
     };
     
-    // Add to Next Week
-    state.nextWeekPlanTickets.push(movedTicket);
-    
-    // Remove from Current Week
-    state.currentWeekTickets.splice(index, 1);
+    // Add copy to Next Week (original stays in Current Week)
+    state.nextWeekPlanTickets.push(copiedTicket);
     
     saveToStorage();
     renderTickets();
     
-    const hoursInfo = ticket.actualHours > 0 
-        ? ` with ${remainingHours}h remaining` 
-        : '';
-    showToast(`Ticket moved to Next Week${hoursInfo}!`, 'success');
+    showToast(`Ticket copied to Next Week with ${remainingHours}h remaining!`, 'success');
 };
 
 
