@@ -1,4 +1,4 @@
-// Ticket Tracker Application
+// PlanQC Application
 // =========================
 
 // Firebase Configuration
