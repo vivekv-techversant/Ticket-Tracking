@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Tracker - Weekly Planning</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+                <h1>Ticket Tracker</h1>
+            </div>
+            <div class="week-navigation">
+                <button class="nav-btn" id="prevWeekBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <span class="current-week" id="currentWeekDisplay">Week of Dec 2, 2024</span>
+                <button class="nav-btn" id="nextWeekBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            <button class="report-btn" id="openReportModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                Generate Report
+            </button>
+        </header>
+
+        <main class="main-content">
+            <!-- Bleed Over Section (Top) -->
+            <div class="bleed-over-section bleed-over-top" id="bleedOverSectionTop">
+                <div class="bleed-over-content">
+                    <div class="bleed-over-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 5l7 7-7 7M5 12h14"/>
+                        </svg>
+                    </div>
+                    <div class="bleed-over-info">
+                        <h3>Incomplete Tasks Detected</h3>
+                        <p><span id="bleedOverCountTop">0</span> tasks with <span id="bleedOverHoursTop">0</span> remaining hours</p>
+                    </div>
+                    <button class="bleed-over-btn" id="bleedOverBtnTop">
+                        <span>Transfer to Next Week</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Current Week Section -->
+            <section class="week-section next-week current-week-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">🎯</span>
+                        <h2>Current Week</h2>
+                        <span class="week-date" id="nextWeekDate">Dec 2 - Dec 8</span>
+                        <span class="current-week-badge">This Week</span>
+                    </div>
+                    <button class="add-ticket-btn-header" data-week="next">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Add Ticket/Task
+                    </button>
+                    <div class="section-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="nextTotalTickets">0</span>
+                            <span class="stat-label">Tickets</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="nextTotalHours">0h</span>
+                            <span class="stat-label">Planned</span>
+                        </div>
+                        <div class="stat unplanned">
+                            <span class="stat-value" id="nextUnplannedHours">0h</span>
+                            <span class="stat-label">Unplanned</span>
+                        </div>
+                        <div class="stat carried">
+                            <span class="stat-value" id="nextCarriedHours">0h</span>
+                            <span class="stat-label">Carried</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tester Capacity -->
+                <div class="tester-capacity-inline collapsed" id="currentWeekCapacity">
+                    <div class="capacity-inline-header" id="toggleCurrentCapacity">
+                        <span class="capacity-inline-icon">👥</span>
+                        <span class="capacity-inline-title">Tester Capacity</span>
+                        <svg class="capacity-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+                    <div class="capacity-inline-content">
+                        <table class="tester-capacity-table">
+                            <thead>
+                                <tr>
+                                    <th>Tester Name</th>
+                                    <th>Total Hours</th>
+                                    <th>Planned Hours</th>
+                                    <th class="sortable-header" data-week="current" data-sort="unplanned">
+                                        Unplanned
+                                        <span class="sort-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M7 10l5-5 5 5M7 14l5 5 5-5"/>
+                                            </svg>
+                                        </span>
+                                    </th>
+                                    <th>Capacity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="currentWeekCapacityTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="group-by-controls">
+                    <label>Group by:</label>
+                    <div class="group-btn-container">
+                        <button class="group-btn active" data-group="none" data-week="current">None</button>
+                        <button class="group-btn" data-group="status" data-week="current">Status</button>
+                        <button class="group-btn" data-group="tester" data-week="current">Tester</button>
+                        <button class="group-btn" data-group="priority" data-week="current">Priority</button>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="cards" data-week="current" title="Card View">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                            </svg>
+                        </button>
+                        <button class="view-btn" data-view="swimlanes" data-week="current" title="Swim Lanes">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="5" height="18"/><rect x="10" y="3" width="5" height="18"/>
+                                <rect x="17" y="3" width="5" height="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="tickets-container" id="nextWeekTickets">
+                    <!-- Tickets will be rendered here -->
+                </div>
+                
+                <!-- Reestimation Notes -->
+                <div class="reestimation-notes-section" id="currentWeekReestimationNotes">
+                    <!-- Reestimation notes will be rendered here -->
+                </div>
+            </section>
+
+            <!-- Next Week Section -->
+            <section class="week-section next-week-plan">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">📋</span>
+                        <h2>Next Week</h2>
+                        <span class="week-date" id="nextWeekPlanDate">Dec 9 - Dec 15</span>
+                    </div>
+                    <button class="add-ticket-btn-header" data-week="nextWeekPlan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Add Ticket/Task
+                    </button>
+                    <div class="section-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="nextWeekPlanTickets">0</span>
+                            <span class="stat-label">Tickets</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="nextWeekPlanHours">0h</span>
+                            <span class="stat-label">Planned</span>
+                        </div>
+                        <div class="stat unplanned">
+                            <span class="stat-value" id="nextWeekPlanUnplannedHours">0h</span>
+                            <span class="stat-label">Unplanned</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tester Capacity -->
+                <div class="tester-capacity-inline collapsed" id="nextWeekCapacity">
+                    <div class="capacity-inline-header" id="toggleNextCapacity">
+                        <span class="capacity-inline-icon">👥</span>
+                        <span class="capacity-inline-title">Tester Capacity</span>
+                        <svg class="capacity-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+                    <div class="capacity-inline-content">
+                        <table class="tester-capacity-table">
+                            <thead>
+                                <tr>
+                                    <th>Tester Name</th>
+                                    <th>Total Hours</th>
+                                    <th>Planned Hours</th>
+                                    <th class="sortable-header" data-week="nextWeekPlan" data-sort="unplanned">
+                                        Unplanned
+                                        <span class="sort-icon">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M7 10l5-5 5 5M7 14l5 5 5-5"/>
+                                            </svg>
+                                        </span>
+                                    </th>
+                                    <th>Capacity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nextWeekCapacityTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="group-by-controls">
+                    <label>Group by:</label>
+                    <div class="group-btn-container">
+                        <button class="group-btn active" data-group="none" data-week="nextWeekPlan">None</button>
+                        <button class="group-btn" data-group="status" data-week="nextWeekPlan">Status</button>
+                        <button class="group-btn" data-group="tester" data-week="nextWeekPlan">Tester</button>
+                        <button class="group-btn" data-group="priority" data-week="nextWeekPlan">Priority</button>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="cards" data-week="nextWeekPlan" title="Card View">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                            </svg>
+                        </button>
+                        <button class="view-btn" data-view="swimlanes" data-week="nextWeekPlan" title="Swim Lanes">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="5" height="18"/><rect x="10" y="3" width="5" height="18"/>
+                                <rect x="17" y="3" width="5" height="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="tickets-container" id="nextWeekPlanTicketsContainer">
+                    <!-- Tickets will be rendered here -->
+                </div>
+                
+                <!-- Reestimation Notes -->
+                <div class="reestimation-notes-section" id="nextWeekReestimationNotes">
+                    <!-- Reestimation notes will be rendered here -->
+                </div>
+            </section>
+
+            </main>
+    </div>
+
+    <!-- Add/Edit Ticket Modal -->
+    <div class="modal-overlay" id="ticketModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add New Ticket/Task</h3>
+                <button class="modal-close" id="closeModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="ticketForm">
+                <div class="form-group">
+                    <label for="ticketId">Ticket ID</label>
+                    <input type="text" id="ticketId" placeholder="e.g., TICK-1234" required>
+                </div>
+                <div class="form-group">
+                    <label for="ticketName">Ticket Name</label>
+                    <input type="text" id="ticketName" placeholder="Brief description of the ticket" required>
+                </div>
+                <div class="form-group">
+                    <label for="testerName">Tester Name</label>
+                    <select id="testerName" required>
+                        <option value="">Select Tester</option>
+                        <option value="Amalraj R">Amalraj R</option>
+                        <option value="Aravind K V">Aravind K V</option>
+                        <option value="Julie Varghese">Julie Varghese</option>
+                        <option value="Kavyagayathry S">Kavyagayathry S</option>
+                        <option value="Reshma Madhavan Nair">Reshma Madhavan Nair</option>
+                        <option value="Reshma R">Reshma R</option>
+                        <option value="Subhash S V Nair">Subhash S V Nair</option>
+                        <option value="Suby Baby">Suby Baby</option>
+                        <option value="Vincy JP">Vincy JP</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="estimatedHours">Estimated Hours</label>
+                        <input type="number" id="estimatedHours" min="0.5" step="0.5" placeholder="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="actualHours">Actual Hours</label>
+                        <input type="number" id="actualHours" min="0" step="0.5" placeholder="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="ticketStatus">Status</label>
+                    <select id="ticketStatus">
+                        <option value="nil">Nil</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="qc-testing">QC Testing</option>
+                        <option value="qc-testing-in-progress">QC Testing In Progress</option>
+                        <option value="qc-testing-hold">QC Testing Hold</option>
+                        <option value="qc-review-fail">QC Review Fail</option>
+                        <option value="testing-in-progress">Testing In Progress</option>
+                        <option value="tested-awaiting-fixes">Tested - Awaiting Fixes</option>
+                        <option value="bis-testing">BIS Testing</option>
+                        <option value="approved-for-live">Approved for Live</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ticketPriority">Priority</label>
+                    <select id="ticketPriority">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <input type="hidden" id="ticketWeek">
+                <input type="hidden" id="editTicketIndex">
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal confirm-modal">
+            <div class="confirm-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M13 5l7 7-7 7M5 12h14"/>
+                </svg>
+            </div>
+            <h3>Transfer Incomplete Tasks?</h3>
+            <p id="confirmMessage">This will carry over remaining hours from incomplete tasks to next week's plan.</p>
+            <div class="confirm-details" id="confirmDetails">
+                <!-- Details will be populated dynamically -->
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelConfirm">Cancel</button>
+                <button type="button" class="btn-primary" id="confirmTransfer">Confirm Transfer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Generation Modal -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal report-modal">
+            <div class="modal-header">
+                <h3>Generate Report</h3>
+                <button class="modal-close" id="closeReportModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="report-form">
+                <div class="form-group">
+                    <label>Time Range</label>
+                    <div class="time-range-inputs">
+                        <div class="time-range-field">
+                            <label for="reportNumber">Past</label>
+                            <input type="number" id="reportNumber" min="1" max="52" value="1">
+                        </div>
+                        <div class="time-range-field">
+                            <label for="reportPeriod">Period</label>
+                            <select id="reportPeriod">
+                                <option value="week">Week(s)</option>
+                                <option value="month">Month(s)</option>
+                                <option value="year">Year(s)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Filter by Tester (Optional)</label>
+                    <select id="reportTester">
+                        <option value="">All Testers</option>
+                        <option value="Amalraj R">Amalraj R</option>
+                        <option value="Aravind K V">Aravind K V</option>
+                        <option value="Julie Varghese">Julie Varghese</option>
+                        <option value="Kavyagayathry S">Kavyagayathry S</option>
+                        <option value="Reshma Madhavan Nair">Reshma Madhavan Nair</option>
+                        <option value="Reshma R">Reshma R</option>
+                        <option value="Subhash S V Nair">Subhash S V Nair</option>
+                        <option value="Suby Baby">Suby Baby</option>
+                        <option value="Vincy JP">Vincy JP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Filter by Status (Optional)</label>
+                    <select id="reportStatus">
+                        <option value="">All Statuses</option>
+                        <option value="nil">Nil</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="qc-testing">QC Testing</option>
+                        <option value="qc-testing-in-progress">QC Testing In Progress</option>
+                        <option value="qc-testing-hold">QC Testing Hold</option>
+                        <option value="qc-review-fail">QC Review Fail</option>
+                        <option value="testing-in-progress">Testing In Progress</option>
+                        <option value="tested-awaiting-fixes">Tested - Awaiting Fixes</option>
+                        <option value="bis-testing">BIS Testing</option>
+                        <option value="approved-for-live">Approved for Live</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                <div class="report-preview">
+                    <div class="report-preview-header">
+                        <span class="report-preview-icon">📊</span>
+                        <span>Report Preview</span>
+                    </div>
+                    <div class="report-preview-info">
+                        <p>Date Range: <span id="reportDateRange">-</span></p>
+                        <p>Tickets Found: <span id="reportTicketCount">0</span></p>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelReport">Cancel</button>
+                    <button type="button" class="btn-primary" id="generateReport">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Over Capacity Warning Modal -->
+    <div class="modal-overlay" id="overCapacityModal">
+        <div class="modal over-capacity-modal">
+            <div class="over-capacity-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h3>Tester Over Capacity</h3>
+            <p><span id="overCapacityTester">Tester</span> will exceed their available hours.</p>
+            <div class="over-capacity-details">
+                <div class="capacity-detail-row">
+                    <span class="capacity-detail-label">Total Available Hours:</span>
+                    <span class="capacity-detail-value"><span id="overCapacityTotal">0</span>h</span>
+                </div>
+                <div class="capacity-detail-row">
+                    <span class="capacity-detail-label">Planned Hours (after save):</span>
+                    <span class="capacity-detail-value over"><span id="overCapacityPlanned">0</span>h</span>
+                </div>
+                <div class="capacity-detail-row highlight">
+                    <span class="capacity-detail-label">Over by:</span>
+                    <span class="capacity-detail-value over"><span id="overCapacityOver">0</span>h</span>
+                </div>
+            </div>
+            <p class="over-capacity-prompt">Do you still want to save this ticket?</p>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelOverCapacity">Don't Save</button>
+                <button type="button" class="btn-primary btn-warning" id="confirmOverCapacity">Save Anyway</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reestimate Modal -->
+    <div class="modal-overlay" id="reestimateModal">
+        <div class="modal reestimate-modal">
+            <div class="reestimate-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h3>Actual Hours Exceed Estimate</h3>
+            <p>Actual hours (<span id="reestimateActual">0</span>h) exceed estimated hours (<span id="reestimateEstimated">0</span>h).</p>
+            <p class="reestimate-prompt">Please update the estimated hours to match or exceed actual hours, or provide a reason for the reestimation.</p>
+            <div class="form-group">
+                <label for="newEstimatedHours">New Estimated Hours</label>
+                <input type="number" id="newEstimatedHours" min="0.5" step="0.5" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label for="reestimationReason">Reason for Reestimation</label>
+                <textarea id="reestimationReason" rows="3" placeholder="e.g., Additional scope discovered, complexity underestimated..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelReestimate">Cancel</button>
+                <button type="button" class="btn-primary" id="confirmReestimate">Update & Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
