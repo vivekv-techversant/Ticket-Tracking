@@ -16,6 +16,10 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
+
+// Auth state
+let currentUser = null;
 
 // Tester List
 const TESTERS = [
@@ -1189,29 +1193,9 @@ function navigateWeek(direction) {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize current week based on today's date
-    state.currentWeekStart = getCurrentViewWeek();
-    
-    // Show loading state
-    showToast('Loading data...', 'info');
-    
-    // Load view preferences first (local)
-    const viewPreferences = localStorage.getItem('viewPreferences');
-    if (viewPreferences) {
-        const prefs = JSON.parse(viewPreferences);
-        if (prefs.viewMode) state.viewMode = prefs.viewMode;
-        if (prefs.groupBy) state.groupBy = prefs.groupBy;
-    }
-    
-    updateWeekDates();
-    updateViewButtons();
-    
-    // Initialize capacity
-    initializeCapacity();
-    
-    // Load data from Firebase and set up realtime listeners
-    loadFromStorage();
-    setupRealtimeListeners();
+    // Auth state listener will handle initialization
+    // This is just a placeholder - the auth.onAuthStateChanged handles everything
+    console.log('App loaded, waiting for auth state...');
 });
 
 // Update view buttons to reflect saved preferences
@@ -1653,3 +1637,169 @@ async function generateExcelReport() {
     closeReportModal();
 }
 
+// =====================
+// Authentication Functions
+// =====================
+
+function showLoginPage() {
+    document.getElementById('loginContainer').style.display = 'flex';
+    document.getElementById('appContainer').style.display = 'none';
+}
+
+function showAppPage() {
+    document.getElementById('loginContainer').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'block';
+}
+
+function updateUserDisplay(user) {
+    const userEmailEl = document.getElementById('userEmail');
+    if (userEmailEl && user) {
+        userEmailEl.textContent = user.email;
+    }
+}
+
+async function handleLogin(email, password) {
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+    
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span>Signing in...</span>';
+    loginError.textContent = '';
+    
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // Auth state listener will handle the rest
+    } catch (error) {
+        console.error('Login error:', error);
+        let errorMessage = 'Failed to sign in. Please try again.';
+        
+        switch (error.code) {
+            case 'auth/user-not-found':
+                errorMessage = 'No account found with this email.';
+                break;
+            case 'auth/wrong-password':
+                errorMessage = 'Incorrect password.';
+                break;
+            case 'auth/invalid-email':
+                errorMessage = 'Invalid email address.';
+                break;
+            case 'auth/too-many-requests':
+                errorMessage = 'Too many failed attempts. Please try again later.';
+                break;
+            case 'auth/invalid-credential':
+                errorMessage = 'Invalid email or password.';
+                break;
+        }
+        
+        loginError.textContent = errorMessage;
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<span>Sign In</span>';
+    }
+}
+
+async function handleRegister(email, password) {
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+    
+    loginBtn.disabled = true;
+    loginError.textContent = '';
+    
+    try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        showToast('Account created successfully!', 'success');
+        // Auth state listener will handle the rest
+    } catch (error) {
+        console.error('Registration error:', error);
+        let errorMessage = 'Failed to create account. Please try again.';
+        
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                errorMessage = 'An account with this email already exists.';
+                break;
+            case 'auth/invalid-email':
+                errorMessage = 'Invalid email address.';
+                break;
+            case 'auth/weak-password':
+                errorMessage = 'Password should be at least 6 characters.';
+                break;
+        }
+        
+        loginError.textContent = errorMessage;
+        loginBtn.disabled = false;
+    }
+}
+
+async function handleLogout() {
+    try {
+        await auth.signOut();
+        showToast('Signed out successfully', 'info');
+    } catch (error) {
+        console.error('Logout error:', error);
+        showToast('Failed to sign out', 'error');
+    }
+}
+
+// Auth state listener
+auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    
+    if (user) {
+        // User is signed in
+        updateUserDisplay(user);
+        showAppPage();
+        
+        // Initialize the app
+        state.currentWeekStart = getCurrentViewWeek();
+        
+        const viewPreferences = localStorage.getItem('viewPreferences');
+        if (viewPreferences) {
+            const prefs = JSON.parse(viewPreferences);
+            if (prefs.viewMode) state.viewMode = prefs.viewMode;
+            if (prefs.groupBy) state.groupBy = prefs.groupBy;
+        }
+        
+        updateWeekDates();
+        updateViewButtons();
+        initializeCapacity();
+        loadFromStorage();
+        setupRealtimeListeners();
+    } else {
+        // User is signed out
+        showLoginPage();
+        
+        // Reset login form
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<span>Sign In</span>';
+        }
+    }
+});
+
+// Login form event listeners
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    handleLogin(email, password);
+});
+
+document.getElementById('registerBtn').addEventListener('click', () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const loginError = document.getElementById('loginError');
+    
+    if (!email || !password) {
+        loginError.textContent = 'Please enter email and password to create an account.';
+        return;
+    }
+    
+    if (password.length < 6) {
+        loginError.textContent = 'Password should be at least 6 characters.';
+        return;
+    }
+    
+    handleRegister(email, password);
+});
+
+document.getElementById('logoutBtn').addEventListener('click', handleLogout);
