@@ -896,9 +896,12 @@ function calculateStats(tickets) {
 
 function updateBleedOverSection() {
     // Check for incomplete tasks in current week that can be transferred to next week
+    // Exclude tasks that have already been carried to next week
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
         ticket.status !== 'approved-for-live' && 
-        ticket.actualHours < ticket.estimatedHours
+        ticket.status !== 'closed' &&
+        ticket.actualHours < ticket.estimatedHours &&
+        !ticket.carriedToNextWeek
     );
     
     const totalRemainingHours = incompleteTasks.reduce((sum, ticket) => 
@@ -958,7 +961,9 @@ function closeTicketModal() {
 function openConfirmModal() {
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
         ticket.status !== 'approved-for-live' && 
-        ticket.actualHours < ticket.estimatedHours
+        ticket.status !== 'closed' &&
+        ticket.actualHours < ticket.estimatedHours &&
+        !ticket.carriedToNextWeek
     );
     
     elements.confirmDetails.innerHTML = incompleteTasks.map(ticket => {
@@ -1141,7 +1146,9 @@ window.moveTicket = function(week, index) {
 function transferIncompleteTasks() {
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
         ticket.status !== 'approved-for-live' && 
-        ticket.actualHours < ticket.estimatedHours
+        ticket.status !== 'closed' &&
+        ticket.actualHours < ticket.estimatedHours &&
+        !ticket.carriedToNextWeek
     );
     
     incompleteTasks.forEach(ticket => {
@@ -1169,6 +1176,12 @@ function transferIncompleteTasks() {
             };
             
             state.nextWeekPlanTickets.push(carriedTicket);
+            
+            // Mark original ticket as carried to next week
+            const originalIndex = state.currentWeekTickets.findIndex(t => t.id === ticket.id);
+            if (originalIndex !== -1) {
+                state.currentWeekTickets[originalIndex].carriedToNextWeek = true;
+            }
         }
     });
     
