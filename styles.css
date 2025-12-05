@@ -1,34 +1,34 @@
 /* CSS Variables */
 :root {
-    --bg-primary: #1a1a2e;
-    --bg-secondary: #16213e;
-    --bg-tertiary: #1f2b4d;
-    --bg-card: #1e2746;
-    --bg-hover: #2a3a5c;
+    --bg-primary: #f0f4f8;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e2e8f0;
+    --bg-card: #ffffff;
+    --bg-hover: #edf2f7;
     
-    --text-primary: #e8e8e8;
-    --text-secondary: #a0a0a0;
-    --text-muted: #6e7681;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
     
-    --accent-cyan: #4a9eff;
-    --accent-green: #4ade80;
-    --accent-orange: #fbbf24;
-    --accent-red: #f87171;
-    --accent-purple: #a78bfa;
-    --accent-pink: #f472b6;
+    --accent-cyan: #0891b2;
+    --accent-green: #059669;
+    --accent-orange: #d97706;
+    --accent-red: #dc2626;
+    --accent-purple: #7c3aed;
+    --accent-pink: #db2777;
     
-    --border-color: #2d3a5c;
-    --border-light: #253050;
+    --border-color: #e2e8f0;
+    --border-light: #cbd5e1;
     
-    --gradient-primary: linear-gradient(135deg, #4a9eff 0%, #2563eb 100%);
-    --gradient-success: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-    --gradient-warning: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-    --gradient-danger: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 20px rgba(74, 158, 255, 0.25);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+    --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.2);
     
     --radius-sm: 6px;
     --radius-md: 10px;
@@ -38,6 +38,14 @@
     --transition-fast: 150ms ease;
     --transition-normal: 250ms ease;
     --transition-slow: 400ms ease;
+    
+    /* Week section specific colors */
+    --week-current-bg: #ecfdf5;
+    --week-current-border: #6ee7b7;
+    --week-current-accent: #059669;
+    --week-next-bg: #eff6ff;
+    --week-next-border: #93c5fd;
+    --week-next-accent: #3b82f6;
 }
 
 /* Login Page Styles */
@@ -57,7 +65,7 @@
     padding: 2.5rem;
     width: 100%;
     max-width: 420px;
-    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     animation: fadeInUp 0.5s ease;
 }
 
@@ -69,19 +77,15 @@
 .login-logo {
     width: 56px;
     height: 56px;
-    color: var(--accent-cyan);
+    color: #6366f1;
     margin-bottom: 1rem;
-    filter: drop-shadow(0 0 12px rgba(64, 224, 208, 0.4));
 }
 
 .login-header h1 {
     font-family: 'JetBrains Mono', monospace;
     font-size: 1.75rem;
     font-weight: 700;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
 }
 
@@ -162,7 +166,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1rem;
-    background: var(--bg-tertiary);
+    background: var(--bg-primary);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
@@ -250,10 +254,13 @@ body::before {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 0;
+    padding: 1.5rem 2rem;
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 2rem;
     animation: fadeInDown 0.5s ease;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
 }
 
 @keyframes fadeInDown {
@@ -276,18 +283,14 @@ body::before {
 .logo-icon {
     width: 36px;
     height: 36px;
-    color: var(--accent-cyan);
-    filter: drop-shadow(0 0 8px rgba(88, 166, 255, 0.4));
+    color: #6366f1;
 }
 
 .logo h1 {
     font-family: 'JetBrains Mono', monospace;
     font-size: 1.5rem;
     font-weight: 700;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
     letter-spacing: -0.5px;
 }
 
@@ -379,6 +382,25 @@ body::before {
     padding: 1.5rem;
     animation: fadeInUp 0.6s ease;
     animation-fill-mode: both;
+    box-shadow: var(--shadow-md);
+}
+
+.week-section.current-week {
+    background: var(--week-current-bg);
+    border: 2px solid var(--week-current-border);
+}
+
+.week-section.current-week .section-header h2 {
+    color: var(--week-current-accent);
+}
+
+.week-section.next-week-plan {
+    background: var(--week-next-bg);
+    border: 2px solid var(--week-next-border);
+}
+
+.week-section.next-week-plan .section-header h2 {
+    color: var(--week-next-accent);
 }
 
 .previous-week {
@@ -941,6 +963,7 @@ body::before {
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow-sm);
 }
 
 .ticket-card::before {
@@ -1674,13 +1697,13 @@ form {
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(20, 184, 166, 0.4);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
 }
 
 .btn-secondary {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    color: var(--text-secondary);
+    color: var(--text-primary);
 }
 
 .btn-secondary:hover {
