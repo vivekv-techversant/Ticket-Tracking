@@ -310,11 +310,13 @@ function renderTicketCard(ticket, week, index) {
             <div class="ticket-header">
                 <span class="ticket-id">${escapeHtml(ticket.ticketId)}</span>
                 <div class="ticket-actions">
-                    <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="${week === 'current' || week === 'next' ? 'Move to Next Week' : 'Move to Current Week'}">
+                    ${week === 'current' ? `
+                    <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="Move to Next Week">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                     </button>
+                    ` : ''}
                     <button class="ticket-action-btn edit" onclick="editTicket('${week}', ${index})" title="Edit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -1058,25 +1060,19 @@ window.deleteTicket = function(week, index) {
 };
 
 window.moveTicket = function(week, index) {
-    let sourceTickets, targetTickets, targetWeekName;
-    
-    if (week === 'current' || week === 'next') {
-        sourceTickets = state.currentWeekTickets;
-        targetTickets = state.nextWeekPlanTickets;
-        targetWeekName = 'Next Week';
-    } else {
-        sourceTickets = state.nextWeekPlanTickets;
-        targetTickets = state.currentWeekTickets;
-        targetWeekName = 'Current Week';
+    // Only allow moving from Current Week to Next Week
+    if (week !== 'current') {
+        showToast('Tickets can only be moved forward to Next Week', 'error');
+        return;
     }
     
-    const ticket = sourceTickets[index];
+    const ticket = state.currentWeekTickets[index];
     if (!ticket) return;
     
     // Calculate remaining hours (estimated - actual)
     const remainingHours = Math.max(0, ticket.estimatedHours - ticket.actualHours);
     
-    // Create new ticket for target week
+    // Create new ticket for Next Week
     const movedTicket = {
         id: generateId(),
         ticketId: ticket.ticketId,
@@ -1087,16 +1083,16 @@ window.moveTicket = function(week, index) {
         status: ticket.actualHours > 0 ? 'nil' : ticket.status, // Reset status if work was done
         priority: ticket.priority,
         carriedOver: ticket.actualHours > 0, // Mark as carried over if work was done
-        movedFrom: week === 'current' || week === 'next' ? 'currentWeek' : 'nextWeek',
+        movedFrom: 'currentWeek',
         originalTicketId: ticket.id,
         createdAt: new Date().toISOString()
     };
     
-    // Add to target week
-    targetTickets.push(movedTicket);
+    // Add to Next Week
+    state.nextWeekPlanTickets.push(movedTicket);
     
-    // Remove from source week
-    sourceTickets.splice(index, 1);
+    // Remove from Current Week
+    state.currentWeekTickets.splice(index, 1);
     
     saveToStorage();
     renderTickets();
@@ -1104,7 +1100,7 @@ window.moveTicket = function(week, index) {
     const hoursInfo = ticket.actualHours > 0 
         ? ` with ${remainingHours}h remaining` 
         : '';
-    showToast(`Ticket moved to ${targetWeekName}${hoursInfo}!`, 'success');
+    showToast(`Ticket moved to Next Week${hoursInfo}!`, 'success');
 };
 
 
