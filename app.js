@@ -1,6 +1,22 @@
 // Ticket Tracker Application
 // =========================
 
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDt-Pi6XQBwe-kCGw5_h4HCtXDN_7L2muI",
+    authDomain: "weeklyqc-a5587.firebaseapp.com",
+    databaseURL: "https://weeklyqc-a5587-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "weeklyqc-a5587",
+    storageBucket: "weeklyqc-a5587.firebasestorage.app",
+    messagingSenderId: "285330076526",
+    appId: "1:285330076526:web:4a2682c466323880e9477f",
+    measurementId: "G-B7JXK82NS3"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
 // Tester List
 const TESTERS = [
     'Amalraj R',
@@ -82,33 +98,34 @@ function getStorageKey(weekStart, type) {
     return `tickets_${type}_${dateStr}`;
 }
 
-// Local Storage Functions
+function getFirebaseKey(weekStart, type) {
+    const dateStr = weekStart.toISOString().split('T')[0];
+    return `${type}_${dateStr.replace(/-/g, '_')}`;
+}
+
+// Firebase Database Functions
 function saveToStorage() {
     const nextWeekStart = new Date(state.currentWeekStart);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
-    localStorage.setItem(
-        getStorageKey(state.currentWeekStart, 'week'),
-        JSON.stringify(state.currentWeekTickets)
-    );
-    localStorage.setItem(
-        getStorageKey(nextWeekStart, 'week'),
-        JSON.stringify(state.nextWeekPlanTickets)
-    );
+    const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
+    const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
+    const currentCapacityKey = getFirebaseKey(state.currentWeekStart, 'capacity');
+    const nextCapacityKey = getFirebaseKey(nextWeekStart, 'capacity');
     
-    // Save tester capacity for current week
-    localStorage.setItem(
-        getStorageKey(state.currentWeekStart, 'capacity'),
-        JSON.stringify(state.currentWeekCapacity)
-    );
+    // Save to Firebase
+    const updates = {};
+    updates[`/tickets/${currentWeekKey}`] = state.currentWeekTickets;
+    updates[`/tickets/${nextWeekKey}`] = state.nextWeekPlanTickets;
+    updates[`/capacity/${currentCapacityKey}`] = state.currentWeekCapacity;
+    updates[`/capacity/${nextCapacityKey}`] = state.nextWeekCapacity;
     
-    // Save tester capacity for next week
-    localStorage.setItem(
-        getStorageKey(nextWeekStart, 'capacity'),
-        JSON.stringify(state.nextWeekCapacity)
-    );
+    database.ref().update(updates).catch(error => {
+        console.error('Error saving to Firebase:', error);
+        showToast('Error saving data. Please try again.', 'error');
+    });
     
-    // Save view preferences (persists across sessions)
+    // Save view preferences locally (these are user-specific)
     localStorage.setItem('viewPreferences', JSON.stringify({
         viewMode: state.viewMode,
         groupBy: state.groupBy
@@ -119,18 +136,13 @@ function loadFromStorage() {
     const nextWeekStart = new Date(state.currentWeekStart);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
-    const currentData = localStorage.getItem(getStorageKey(state.currentWeekStart, 'week'));
-    const nextData = localStorage.getItem(getStorageKey(nextWeekStart, 'week'));
-    const currentCapacityData = localStorage.getItem(getStorageKey(state.currentWeekStart, 'capacity'));
-    const nextCapacityData = localStorage.getItem(getStorageKey(nextWeekStart, 'capacity'));
+    const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
+    const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
+    const currentCapacityKey = getFirebaseKey(state.currentWeekStart, 'capacity');
+    const nextCapacityKey = getFirebaseKey(nextWeekStart, 'capacity');
+    
+    // Load view preferences from localStorage (user-specific)
     const viewPreferences = localStorage.getItem('viewPreferences');
-    
-    state.currentWeekTickets = currentData ? JSON.parse(currentData) : [];
-    state.nextWeekPlanTickets = nextData ? JSON.parse(nextData) : [];
-    state.currentWeekCapacity = currentCapacityData ? JSON.parse(currentCapacityData) : {};
-    state.nextWeekCapacity = nextCapacityData ? JSON.parse(nextCapacityData) : {};
-    
-    // Load view preferences
     if (viewPreferences) {
         const prefs = JSON.parse(viewPreferences);
         if (prefs.viewMode) {
@@ -141,14 +153,94 @@ function loadFromStorage() {
         }
     }
     
-    // Initialize capacity for all testers if not present
+    // Load data from Firebase
+    Promise.all([
+        database.ref(`/tickets/${currentWeekKey}`).once('value'),
+        database.ref(`/tickets/${nextWeekKey}`).once('value'),
+        database.ref(`/capacity/${currentCapacityKey}`).once('value'),
+        database.ref(`/capacity/${nextCapacityKey}`).once('value')
+    ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap]) => {
+        state.currentWeekTickets = currentSnap.val() || [];
+        state.nextWeekPlanTickets = nextSnap.val() || [];
+        state.currentWeekCapacity = currentCapSnap.val() || {};
+        state.nextWeekCapacity = nextCapSnap.val() || {};
+        
+        // Initialize capacity for all testers if not present
+        TESTERS.forEach(tester => {
+            if (!state.currentWeekCapacity[tester]) {
+                state.currentWeekCapacity[tester] = { totalHours: 40 };
+            }
+            if (!state.nextWeekCapacity[tester]) {
+                state.nextWeekCapacity[tester] = { totalHours: 40 };
+            }
+        });
+        
+        // Re-render after loading
+        updateWeekDates();
+        updateViewButtons();
+        renderTickets();
+    }).catch(error => {
+        console.error('Error loading from Firebase:', error);
+        showToast('Error loading data. Please refresh the page.', 'error');
+        
+        // Initialize with empty data
+        state.currentWeekTickets = [];
+        state.nextWeekPlanTickets = [];
+        initializeCapacity();
+        renderTickets();
+    });
+}
+
+function initializeCapacity() {
     TESTERS.forEach(tester => {
         if (!state.currentWeekCapacity[tester]) {
-            state.currentWeekCapacity[tester] = { totalHours: 40 }; // Default 40 hours per week
+            state.currentWeekCapacity[tester] = { totalHours: 40 };
         }
         if (!state.nextWeekCapacity[tester]) {
-            state.nextWeekCapacity[tester] = { totalHours: 40 }; // Default 40 hours per week
+            state.nextWeekCapacity[tester] = { totalHours: 40 };
         }
+    });
+}
+
+// Set up real-time listeners for Firebase
+function setupRealtimeListeners() {
+    const nextWeekStart = new Date(state.currentWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    
+    const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
+    const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
+    const currentCapacityKey = getFirebaseKey(state.currentWeekStart, 'capacity');
+    const nextCapacityKey = getFirebaseKey(nextWeekStart, 'capacity');
+    
+    // Remove existing listeners
+    database.ref(`/tickets/${currentWeekKey}`).off();
+    database.ref(`/tickets/${nextWeekKey}`).off();
+    database.ref(`/capacity/${currentCapacityKey}`).off();
+    database.ref(`/capacity/${nextCapacityKey}`).off();
+    
+    // Set up new listeners
+    database.ref(`/tickets/${currentWeekKey}`).on('value', (snapshot) => {
+        state.currentWeekTickets = snapshot.val() || [];
+        renderTickets();
+    });
+    
+    database.ref(`/tickets/${nextWeekKey}`).on('value', (snapshot) => {
+        state.nextWeekPlanTickets = snapshot.val() || [];
+        renderTickets();
+    });
+    
+    database.ref(`/capacity/${currentCapacityKey}`).on('value', (snapshot) => {
+        state.currentWeekCapacity = snapshot.val() || {};
+        initializeCapacity();
+        renderTesterCapacity();
+        updateStats();
+    });
+    
+    database.ref(`/capacity/${nextCapacityKey}`).on('value', (snapshot) => {
+        state.nextWeekCapacity = snapshot.val() || {};
+        initializeCapacity();
+        renderTesterCapacity();
+        updateStats();
     });
 }
 
@@ -1090,19 +1182,36 @@ function navigateWeek(direction) {
     const daysToAdd = direction === 'next' ? 7 : -7;
     state.currentWeekStart.setDate(state.currentWeekStart.getDate() + daysToAdd);
     
-    loadFromStorage();
     updateWeekDates();
-    renderTickets();
+    loadFromStorage();
+    setupRealtimeListeners();
 }
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize current week based on today's date
     state.currentWeekStart = getCurrentViewWeek();
-    loadFromStorage();
+    
+    // Show loading state
+    showToast('Loading data...', 'info');
+    
+    // Load view preferences first (local)
+    const viewPreferences = localStorage.getItem('viewPreferences');
+    if (viewPreferences) {
+        const prefs = JSON.parse(viewPreferences);
+        if (prefs.viewMode) state.viewMode = prefs.viewMode;
+        if (prefs.groupBy) state.groupBy = prefs.groupBy;
+    }
+    
     updateWeekDates();
     updateViewButtons();
-    renderTickets();
+    
+    // Initialize capacity
+    initializeCapacity();
+    
+    // Load data from Firebase and set up realtime listeners
+    loadFromStorage();
+    setupRealtimeListeners();
 });
 
 // Update view buttons to reflect saved preferences
@@ -1403,21 +1512,37 @@ function getReportDateRange() {
     return { startDate, endDate };
 }
 
-function getTicketsInRange(startDate, endDate) {
+async function getTicketsInRange(startDate, endDate) {
     const tickets = [];
     const testerFilter = document.getElementById('reportTester').value;
     const statusFilter = document.getElementById('reportStatus').value;
     
-    // Iterate through all weeks in the range
+    // Get all week keys in the range
+    const weekKeys = [];
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
         const weekStart = getWeekStart(currentDate);
-        const storageKey = getStorageKey(weekStart, 'week');
-        const weekData = localStorage.getItem(storageKey);
-        
-        if (weekData) {
-            const weekTickets = JSON.parse(weekData);
-            weekTickets.forEach(ticket => {
+        weekKeys.push({
+            key: getFirebaseKey(weekStart, 'week'),
+            weekStart: new Date(weekStart)
+        });
+        currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    // Fetch all weeks from Firebase
+    const promises = weekKeys.map(({ key, weekStart }) => 
+        database.ref(`/tickets/${key}`).once('value').then(snapshot => ({
+            data: snapshot.val(),
+            weekStart
+        }))
+    );
+    
+    const results = await Promise.all(promises);
+    
+    results.forEach(({ data, weekStart }) => {
+        if (data && Array.isArray(data)) {
+            data.forEach(ticket => {
+                if (!ticket) return;
                 // Apply filters
                 if (testerFilter && ticket.tester !== testerFilter) return;
                 if (statusFilter && ticket.status !== statusFilter) return;
@@ -1429,10 +1554,7 @@ function getTicketsInRange(startDate, endDate) {
                 });
             });
         }
-        
-        // Move to next week
-        currentDate.setDate(currentDate.getDate() + 7);
-    }
+    });
     
     // Remove duplicates based on ticket id
     const uniqueTickets = [];
@@ -1448,18 +1570,22 @@ function getTicketsInRange(startDate, endDate) {
     return uniqueTickets;
 }
 
-function updateReportPreview() {
+async function updateReportPreview() {
     const { startDate, endDate } = getReportDateRange();
-    const tickets = getTicketsInRange(startDate, endDate);
     
     document.getElementById('reportDateRange').textContent = 
         `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    document.getElementById('reportTicketCount').textContent = 'Loading...';
+    
+    const tickets = await getTicketsInRange(startDate, endDate);
     document.getElementById('reportTicketCount').textContent = tickets.length;
 }
 
-function generateExcelReport() {
+async function generateExcelReport() {
     const { startDate, endDate } = getReportDateRange();
-    const tickets = getTicketsInRange(startDate, endDate);
+    
+    showToast('Generating report...', 'info');
+    const tickets = await getTicketsInRange(startDate, endDate);
     
     if (tickets.length === 0) {
         showToast('No tickets found for the selected period', 'info');
