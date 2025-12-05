@@ -347,7 +347,7 @@ function renderTicketCard(ticket, week, index) {
                     </svg>
                     <span class="actual">${ticket.actualHours}h</span> / 
                     <span>${ticket.estimatedHours}h</span>
-                    ${remainingHours > 0 && ticket.status !== 'completed' ? `<span class="remaining">(${remainingHours}h left)</span>` : ''}
+                    ${remainingHours > 0 && ticket.status !== 'completed' && !ticket.carriedToNextWeek ? `<span class="remaining">(${remainingHours}h left)</span>` : ''}
                 </span>
                 ${ticket.carriedOver ? `
                     <span class="carried-badge">
