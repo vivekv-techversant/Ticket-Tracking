@@ -1078,6 +1078,12 @@ window.moveTicket = function(week, index) {
     const ticket = state.currentWeekTickets[index];
     if (!ticket) return;
     
+    // Check if already carried to next week
+    if (ticket.carriedToNextWeek) {
+        showToast('This ticket has already been copied to Next Week', 'info');
+        return;
+    }
+    
     // Calculate remaining hours (estimated - actual)
     const remainingHours = Math.max(0, ticket.estimatedHours - ticket.actualHours);
     
@@ -1086,9 +1092,6 @@ window.moveTicket = function(week, index) {
         showToast('No remaining hours to carry over. Ticket is complete!', 'info');
         return;
     }
-    
-    // Mark the original ticket as "carried over" (keep it in Current Week)
-    ticket.carriedToNextWeek = true;
     
     // Create a COPY of the ticket for Next Week with remaining hours
     const copiedTicket = {
@@ -1106,13 +1109,32 @@ window.moveTicket = function(week, index) {
         createdAt: new Date().toISOString()
     };
     
-    // Add copy to Next Week (original stays in Current Week)
+    // Update the original ticket to mark it as carried (modify in place)
+    state.currentWeekTickets[index] = {
+        ...ticket,
+        carriedToNextWeek: true
+    };
+    
+    // Add copy to Next Week
     state.nextWeekPlanTickets.push(copiedTicket);
     
-    saveToStorage();
-    renderTickets();
+    // Save to Firebase - the realtime listeners will update the UI
+    const nextWeekStart = new Date(state.currentWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
-    showToast(`Ticket copied to Next Week with ${remainingHours}h remaining!`, 'success');
+    const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
+    const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
+    
+    const updates = {};
+    updates[`/tickets/${currentWeekKey}`] = state.currentWeekTickets;
+    updates[`/tickets/${nextWeekKey}`] = state.nextWeekPlanTickets;
+    
+    database.ref().update(updates).then(() => {
+        showToast(`Ticket copied to Next Week with ${remainingHours}h remaining!`, 'success');
+    }).catch(error => {
+        console.error('Error moving ticket:', error);
+        showToast('Error moving ticket. Please try again.', 'error');
+    });
 };
 
 
