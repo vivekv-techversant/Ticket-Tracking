@@ -2575,7 +2575,25 @@ form {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         margin: 0 -0.5rem;
-        padding: 0 0.5rem;
+        padding: 0 0.5rem 0.5rem 0.5rem;
+    }
+    
+    .capacity-content::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .capacity-content::-webkit-scrollbar-track {
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+    }
+    
+    .capacity-content::-webkit-scrollbar-thumb {
+        background: var(--accent-cyan);
+        border-radius: 4px;
+    }
+    
+    .capacity-content::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-green);
     }
     
     .capacity-table {
