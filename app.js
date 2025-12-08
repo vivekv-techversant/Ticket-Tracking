@@ -236,15 +236,21 @@ function setupRealtimeListeners() {
     database.ref(`/capacity/${currentCapacityKey}`).on('value', (snapshot) => {
         state.currentWeekCapacity = snapshot.val() || {};
         initializeCapacity();
-        renderTesterCapacity();
-        updateStats();
+        // Only re-render if user is not currently editing
+        if (!activeHoursInputTester) {
+            renderTesterCapacity();
+            updateStats();
+        }
     });
     
     database.ref(`/capacity/${nextCapacityKey}`).on('value', (snapshot) => {
         state.nextWeekCapacity = snapshot.val() || {};
         initializeCapacity();
-        renderTesterCapacity();
-        updateStats();
+        // Only re-render if user is not currently editing
+        if (!activeHoursInputTester) {
+            renderTesterCapacity();
+            updateStats();
+        }
     });
 }
 
@@ -766,18 +772,22 @@ function renderTesterCapacity() {
 }
 
 // Track which input is currently being edited to prevent re-render issues
-let activeHoursInput = null;
+let activeHoursInputTester = null;
+let activeHoursInputWeek = null;
 
 function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) return;
     
     // Check if user is currently editing an input in this table - don't re-render if so
+    if (activeHoursInputWeek === weekType && activeHoursInputTester) {
+        // User is editing, don't re-render the table at all
+        return;
+    }
+    
     const activeInput = tableBody.querySelector('.tester-total-hours:focus');
     if (activeInput) {
         // User is editing, don't re-render the table
-        // Just update the other cells (planned, unplanned, capacity bar)
-        updateCapacityDisplayOnly(weekType, tableBody, capacityData);
         return;
     }
     
@@ -860,8 +870,24 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     
     // Add event listeners to total hours inputs
     tableBody.querySelectorAll('.tester-total-hours').forEach(input => {
+        // Track when input is focused to prevent re-renders
+        input.addEventListener('focus', (e) => {
+            activeHoursInputTester = e.target.dataset.tester;
+            activeHoursInputWeek = e.target.dataset.week;
+            // Select all text for easy editing
+            setTimeout(() => {
+                e.target.select();
+            }, 0);
+        });
+        
         // Save on blur (when user clicks away)
-        input.addEventListener('blur', handleTesterHoursBlur);
+        input.addEventListener('blur', (e) => {
+            // Clear the active input tracking
+            activeHoursInputTester = null;
+            activeHoursInputWeek = null;
+            // Handle the value change
+            handleTesterHoursBlur(e);
+        });
         
         // Save on Enter key
         input.addEventListener('keydown', (e) => {
@@ -871,9 +897,8 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
             }
         });
         
-        // Only allow numbers, decimal point, and backspace/delete
+        // Only allow numbers and decimal point - filter on input
         input.addEventListener('input', (e) => {
-            // Remove any non-numeric characters except decimal point
             let value = e.target.value;
             // Allow only digits and one decimal point
             value = value.replace(/[^0-9.]/g, '');
@@ -882,14 +907,10 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
             if (parts.length > 2) {
                 value = parts[0] + '.' + parts.slice(1).join('');
             }
-            e.target.value = value;
-        });
-        
-        // Select all text on focus for easy editing
-        input.addEventListener('focus', (e) => {
-            setTimeout(() => {
-                e.target.select();
-            }, 10);
+            // Don't update if nothing changed (prevents cursor issues)
+            if (e.target.value !== value) {
+                e.target.value = value;
+            }
         });
     });
     
