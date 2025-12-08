@@ -2159,8 +2159,9 @@ function exportAllDataToExcel() {
     const wb = XLSX.utils.book_new();
     
     // ===== Sheet 1: Current Week Tickets =====
-    const currentWeekHeaders = ['Ticket ID', 'Summary', 'Tester', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
+    const currentWeekHeaders = ['Week', 'Ticket ID', 'Summary', 'Tester', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
     const currentWeekRows = state.currentWeekTickets.map(ticket => ({
+        'Week': formatWeekRange(state.currentWeekStart),
         'Ticket ID': ticket.ticketId,
         'Summary': ticket.name,
         'Tester': ticket.tester,
@@ -2175,13 +2176,14 @@ function exportAllDataToExcel() {
     
     const wsCurrentWeek = XLSX.utils.json_to_sheet(currentWeekRows, { header: currentWeekHeaders });
     wsCurrentWeek['!cols'] = [
-        { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
         { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
     ];
     XLSX.utils.book_append_sheet(wb, wsCurrentWeek, `Current Week (${formatDate(state.currentWeekStart)})`);
     
     // ===== Sheet 2: Next Week Tickets =====
     const nextWeekRows = state.nextWeekPlanTickets.map(ticket => ({
+        'Week': formatWeekRange(nextWeekStart),
         'Ticket ID': ticket.ticketId,
         'Summary': ticket.name,
         'Tester': ticket.tester,
@@ -2196,7 +2198,7 @@ function exportAllDataToExcel() {
     
     const wsNextWeek = XLSX.utils.json_to_sheet(nextWeekRows, { header: currentWeekHeaders });
     wsNextWeek['!cols'] = [
-        { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
         { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
     ];
     XLSX.utils.book_append_sheet(wb, wsNextWeek, `Next Week (${formatDate(nextWeekStart)})`);
