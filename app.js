@@ -1106,7 +1106,6 @@ function updateBleedOverSection() {
     // Check for incomplete tasks in current week that can be transferred to next week
     // Exclude tasks that have already been carried to next week
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
-        ticket.status !== 'approved-for-live' && 
         ticket.status !== 'closed' &&
         ticket.actualHours < ticket.estimatedHours &&
         !ticket.carriedToNextWeek
@@ -1168,7 +1167,6 @@ function closeTicketModal() {
 
 function openConfirmModal() {
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
-        ticket.status !== 'approved-for-live' && 
         ticket.status !== 'closed' &&
         ticket.actualHours < ticket.estimatedHours &&
         !ticket.carriedToNextWeek
@@ -1353,7 +1351,6 @@ window.moveTicket = function(week, index) {
 
 function transferIncompleteTasks() {
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
-        ticket.status !== 'approved-for-live' && 
         ticket.status !== 'closed' &&
         ticket.actualHours < ticket.estimatedHours &&
         !ticket.carriedToNextWeek
@@ -1590,7 +1587,6 @@ document.getElementById('bleedOverBtnTop').addEventListener('click', openConfirm
 document.getElementById('confirmTransfer').addEventListener('click', () => {
     // Double confirmation for safety
     const incompleteTasks = state.currentWeekTickets.filter(ticket => 
-        ticket.status !== 'approved-for-live' && 
         ticket.status !== 'closed' &&
         ticket.actualHours < ticket.estimatedHours &&
         !ticket.carriedToNextWeek
