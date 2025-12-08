@@ -2137,163 +2137,160 @@ function getSearchResultsInfo(filteredCount, totalCount, weekName) {
 document.addEventListener('DOMContentLoaded', initializeSearch);
 
 // =====================
-// Import/Export Functionality
+// Export to Excel Functionality
 // =====================
 
-function initializeImportExport() {
+function initializeExport() {
     const exportBtn = document.getElementById('exportDataBtn');
-    const importBtn = document.getElementById('importDataBtn');
-    const importFileInput = document.getElementById('importFileInput');
     
     if (exportBtn) {
-        exportBtn.addEventListener('click', exportData);
-    }
-    
-    if (importBtn && importFileInput) {
-        importBtn.addEventListener('click', () => importFileInput.click());
-        importFileInput.addEventListener('change', handleImportFile);
+        exportBtn.addEventListener('click', exportAllDataToExcel);
     }
 }
 
-function exportData() {
+function exportAllDataToExcel() {
+    showToast('Generating Excel export...', 'info');
+    
     const nextWeekStart = new Date(state.currentWeekStart);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
-    const exportData = {
-        exportDate: new Date().toISOString(),
-        appVersion: '1.0',
-        currentWeekStart: state.currentWeekStart.toISOString(),
-        data: {
-            currentWeekTickets: state.currentWeekTickets,
-            nextWeekPlanTickets: state.nextWeekPlanTickets,
-            currentWeekCapacity: state.currentWeekCapacity,
-            nextWeekCapacity: state.nextWeekCapacity
-        },
-        testers: TESTERS
-    };
+    // Create workbook
+    const wb = XLSX.utils.book_new();
     
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    // ===== Sheet 1: Current Week Tickets =====
+    const currentWeekHeaders = ['Ticket ID', 'Summary', 'Tester', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
+    const currentWeekRows = state.currentWeekTickets.map(ticket => ({
+        'Ticket ID': ticket.ticketId,
+        'Summary': ticket.name,
+        'Tester': ticket.tester,
+        'Status': formatStatus(ticket.status),
+        'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
+        'Estimated Hours': ticket.estimatedHours,
+        'Actual Hours': ticket.actualHours,
+        'Remaining Hours': Math.max(0, ticket.estimatedHours - ticket.actualHours),
+        'Carried Over': ticket.carriedOver ? 'Yes' : 'No',
+        'Moved to Next Week': ticket.carriedToNextWeek ? 'Yes' : 'No'
+    }));
     
+    const wsCurrentWeek = XLSX.utils.json_to_sheet(currentWeekRows, { header: currentWeekHeaders });
+    wsCurrentWeek['!cols'] = [
+        { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsCurrentWeek, `Current Week (${formatDate(state.currentWeekStart)})`);
+    
+    // ===== Sheet 2: Next Week Tickets =====
+    const nextWeekRows = state.nextWeekPlanTickets.map(ticket => ({
+        'Ticket ID': ticket.ticketId,
+        'Summary': ticket.name,
+        'Tester': ticket.tester,
+        'Status': formatStatus(ticket.status),
+        'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
+        'Estimated Hours': ticket.estimatedHours,
+        'Actual Hours': ticket.actualHours,
+        'Remaining Hours': Math.max(0, ticket.estimatedHours - ticket.actualHours),
+        'Carried Over': ticket.carriedOver ? 'Yes' : 'No',
+        'Moved to Next Week': ticket.carriedToNextWeek ? 'Yes' : 'No'
+    }));
+    
+    const wsNextWeek = XLSX.utils.json_to_sheet(nextWeekRows, { header: currentWeekHeaders });
+    wsNextWeek['!cols'] = [
+        { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsNextWeek, `Next Week (${formatDate(nextWeekStart)})`);
+    
+    // ===== Sheet 3: Current Week Tester Capacity =====
+    const currentCapacityHeaders = ['Tester Name', 'Total Hours', 'Planned Hours', 'Unplanned Hours', 'Utilization %'];
+    const currentCapacityRows = TESTERS.map(tester => {
+        const totalHours = state.currentWeekCapacity[tester]?.totalHours ?? 40;
+        const plannedHours = calculateTesterPlannedHours(tester, 'current');
+        const unplannedHours = totalHours - plannedHours;
+        const utilization = totalHours > 0 ? Math.round((plannedHours / totalHours) * 100) : 0;
+        
+        return {
+            'Tester Name': tester,
+            'Total Hours': totalHours,
+            'Planned Hours': plannedHours,
+            'Unplanned Hours': unplannedHours,
+            'Utilization %': utilization + '%'
+        };
+    });
+    
+    const wsCurrentCapacity = XLSX.utils.json_to_sheet(currentCapacityRows, { header: currentCapacityHeaders });
+    wsCurrentCapacity['!cols'] = [
+        { wch: 25 }, { wch: 12 }, { wch: 14 }, { wch: 15 }, { wch: 14 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsCurrentCapacity, 'Current Week Capacity');
+    
+    // ===== Sheet 4: Next Week Tester Capacity =====
+    const nextCapacityRows = TESTERS.map(tester => {
+        const totalHours = state.nextWeekCapacity[tester]?.totalHours ?? 40;
+        const plannedHours = calculateTesterPlannedHours(tester, 'nextWeekPlan');
+        const unplannedHours = totalHours - plannedHours;
+        const utilization = totalHours > 0 ? Math.round((plannedHours / totalHours) * 100) : 0;
+        
+        return {
+            'Tester Name': tester,
+            'Total Hours': totalHours,
+            'Planned Hours': plannedHours,
+            'Unplanned Hours': unplannedHours,
+            'Utilization %': utilization + '%'
+        };
+    });
+    
+    const wsNextCapacity = XLSX.utils.json_to_sheet(nextCapacityRows, { header: currentCapacityHeaders });
+    wsNextCapacity['!cols'] = [
+        { wch: 25 }, { wch: 12 }, { wch: 14 }, { wch: 15 }, { wch: 14 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsNextCapacity, 'Next Week Capacity');
+    
+    // ===== Sheet 5: Summary =====
+    const currentStats = calculateStats(state.currentWeekTickets);
+    const nextStats = calculateStats(state.nextWeekPlanTickets);
+    
+    const summaryData = [
+        { 'Metric': 'Export Date', 'Current Week': new Date().toLocaleDateString(), 'Next Week': '' },
+        { 'Metric': 'Week Starting', 'Current Week': formatDate(state.currentWeekStart), 'Next Week': formatDate(nextWeekStart) },
+        { 'Metric': '', 'Current Week': '', 'Next Week': '' },
+        { 'Metric': 'Total Tickets', 'Current Week': state.currentWeekTickets.length, 'Next Week': state.nextWeekPlanTickets.length },
+        { 'Metric': 'Total Planned Hours', 'Current Week': currentStats.totalHours, 'Next Week': nextStats.totalHours },
+        { 'Metric': 'Total Actual Hours', 'Current Week': currentStats.actualHours, 'Next Week': nextStats.actualHours },
+        { 'Metric': 'Remaining Hours', 'Current Week': currentStats.remainingHours, 'Next Week': nextStats.remainingHours },
+        { 'Metric': '', 'Current Week': '', 'Next Week': '' },
+        { 'Metric': 'Team Total Capacity', 'Current Week': TESTERS.reduce((sum, t) => sum + (state.currentWeekCapacity[t]?.totalHours ?? 40), 0), 'Next Week': TESTERS.reduce((sum, t) => sum + (state.nextWeekCapacity[t]?.totalHours ?? 40), 0) },
+        { 'Metric': 'Team Unplanned Hours', 'Current Week': TESTERS.reduce((sum, t) => sum + (state.currentWeekCapacity[t]?.totalHours ?? 40), 0) - currentStats.totalHours, 'Next Week': TESTERS.reduce((sum, t) => sum + (state.nextWeekCapacity[t]?.totalHours ?? 40), 0) - nextStats.totalHours }
+    ];
+    
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    wsSummary['!cols'] = [
+        { wch: 22 }, { wch: 18 }, { wch: 18 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+    
+    // Generate filename and download
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `PlanQC_Export_${dateStr}.xlsx`;
+    
+    // Write to blob and download
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const dateStr = new Date().toISOString().split('T')[0];
-    a.download = `planqc_backup_${dateStr}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     
     setTimeout(() => {
-        URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
     }, 100);
     
-    showToast('Data exported successfully!', 'success');
+    const totalTickets = state.currentWeekTickets.length + state.nextWeekPlanTickets.length;
+    showToast(`Excel exported with ${totalTickets} tickets!`, 'success');
 }
 
-function handleImportFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const importedData = JSON.parse(event.target.result);
-            
-            // Validate the imported data structure
-            if (!importedData.data || !importedData.appVersion) {
-                throw new Error('Invalid file format');
-            }
-            
-            // Show confirmation modal
-            showImportConfirmModal(importedData);
-            
-        } catch (error) {
-            console.error('Import error:', error);
-            showToast('Failed to import: Invalid file format', 'error');
-        }
-    };
-    
-    reader.readAsText(file);
-    
-    // Reset the input so the same file can be selected again
-    e.target.value = '';
-}
-
-function showImportConfirmModal(importedData) {
-    const ticketCount = (importedData.data.currentWeekTickets?.length || 0) + 
-                        (importedData.data.nextWeekPlanTickets?.length || 0);
-    const exportDate = new Date(importedData.exportDate).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-    
-    const confirmed = confirm(
-        `Import Data?\n\n` +
-        `This backup contains:\n` +
-        `• ${ticketCount} tickets\n` +
-        `• Export date: ${exportDate}\n\n` +
-        `Choose how to import:\n` +
-        `• OK = Merge with existing data\n` +
-        `• Cancel = Abort import\n\n` +
-        `Note: To replace all data, please clear existing data first.`
-    );
-    
-    if (confirmed) {
-        importData(importedData, 'merge');
-    }
-}
-
-function importData(importedData, mode) {
-    try {
-        if (mode === 'merge') {
-            // Merge tickets (avoid duplicates by id)
-            const existingCurrentIds = new Set(state.currentWeekTickets.map(t => t.id));
-            const existingNextIds = new Set(state.nextWeekPlanTickets.map(t => t.id));
-            
-            if (importedData.data.currentWeekTickets) {
-                importedData.data.currentWeekTickets.forEach(ticket => {
-                    if (!existingCurrentIds.has(ticket.id)) {
-                        state.currentWeekTickets.push(ticket);
-                    }
-                });
-            }
-            
-            if (importedData.data.nextWeekPlanTickets) {
-                importedData.data.nextWeekPlanTickets.forEach(ticket => {
-                    if (!existingNextIds.has(ticket.id)) {
-                        state.nextWeekPlanTickets.push(ticket);
-                    }
-                });
-            }
-            
-            // Merge capacity (overwrite per tester)
-            if (importedData.data.currentWeekCapacity) {
-                Object.assign(state.currentWeekCapacity, importedData.data.currentWeekCapacity);
-            }
-            if (importedData.data.nextWeekCapacity) {
-                Object.assign(state.nextWeekCapacity, importedData.data.nextWeekCapacity);
-            }
-        } else {
-            // Replace mode
-            state.currentWeekTickets = importedData.data.currentWeekTickets || [];
-            state.nextWeekPlanTickets = importedData.data.nextWeekPlanTickets || [];
-            state.currentWeekCapacity = importedData.data.currentWeekCapacity || {};
-            state.nextWeekCapacity = importedData.data.nextWeekCapacity || {};
-            initializeCapacity();
-        }
-        
-        // Save to Firebase and re-render
-        saveToStorage();
-        renderTickets();
-        
-        const ticketCount = (importedData.data.currentWeekTickets?.length || 0) + 
-                            (importedData.data.nextWeekPlanTickets?.length || 0);
-        showToast(`Imported ${ticketCount} tickets successfully!`, 'success');
-        
-    } catch (error) {
-        console.error('Import error:', error);
-        showToast('Failed to import data', 'error');
-    }
-}
-
-// Initialize import/export when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeImportExport);
+// Initialize export when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeExport);

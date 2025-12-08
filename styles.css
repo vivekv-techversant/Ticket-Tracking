@@ -408,12 +408,7 @@ body::before {
     height: 12px;
 }
 
-/* Import/Export Buttons */
-.data-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
+/* Export Button */
 .data-btn {
     display: flex;
     align-items: center;
@@ -2584,11 +2579,7 @@ form {
         font-size: 0.85rem;
     }
     
-    /* Data actions mobile */
-    .data-actions {
-        order: 9;
-    }
-    
+    /* Export button mobile */
     .data-btn {
         padding: 0.4rem 0.6rem;
         font-size: 0.75rem;
