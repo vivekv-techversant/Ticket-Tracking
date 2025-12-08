@@ -343,6 +343,104 @@ body::before {
     text-align: center;
 }
 
+/* Search Box */
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    min-width: 200px;
+}
+
+.search-box:focus-within {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+}
+
+.search-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    min-width: 120px;
+}
+
+.search-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--bg-hover);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.search-clear:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+.search-clear svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Import/Export Buttons */
+.data-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.data-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.data-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+.data-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
 /* Report Button */
 .report-btn {
     display: flex;
@@ -2260,7 +2358,7 @@ form {
 .hours-input {
     width: 80px;
     padding: 0.5rem 0.75rem;
-    background: var(--bg-tertiary);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
@@ -2268,12 +2366,30 @@ form {
     font-size: 0.9rem;
     text-align: center;
     transition: all var(--transition-fast);
+    cursor: text;
+}
+
+.hours-input:hover {
+    border-color: var(--accent-cyan);
+    background: var(--bg-hover);
 }
 
 .hours-input:focus {
     outline: none;
     border-color: var(--accent-cyan);
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+    background: var(--bg-tertiary);
+}
+
+/* Remove spinner arrows for number inputs */
+.hours-input::-webkit-outer-spin-button,
+.hours-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.hours-input[type=number] {
+    -moz-appearance: textfield;
 }
 
 .planned-hours {
@@ -2451,6 +2567,31 @@ form {
     .report-btn svg {
         width: 16px;
         height: 16px;
+    }
+    
+    /* Search box mobile */
+    .search-box {
+        min-width: 100%;
+        order: 10;
+    }
+    
+    .search-box input {
+        font-size: 0.85rem;
+    }
+    
+    /* Data actions mobile */
+    .data-actions {
+        order: 9;
+    }
+    
+    .data-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .data-btn svg {
+        width: 14px;
+        height: 14px;
     }
     
     /* User info */
@@ -3150,5 +3291,46 @@ form {
 .toast-message {
     font-size: 0.9rem;
     color: var(--text-primary);
+}
+
+/* Search Highlight */
+.search-highlight {
+    background: rgba(251, 191, 36, 0.4);
+    color: var(--text-primary);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Hidden tickets during search */
+.ticket-card.search-hidden {
+    display: none !important;
+}
+
+.ticket-group.search-hidden {
+    display: none !important;
+}
+
+/* Search results info */
+.search-results-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.search-results-info .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent-cyan);
+}
+
+.search-results-info .term {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-orange);
 }
 

@@ -1846,3 +1846,322 @@ document.getElementById('registerBtn').addEventListener('click', () => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+// =====================
+// Search Functionality
+// =====================
+
+let searchTerm = '';
+
+function initializeSearch() {
+    const searchInput = document.getElementById('ticketSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    
+    if (!searchInput || !clearBtn) return;
+    
+    searchInput.addEventListener('input', (e) => {
+        searchTerm = e.target.value.trim().toLowerCase();
+        clearBtn.style.display = searchTerm ? 'flex' : 'none';
+        filterTicketsBySearch();
+    });
+    
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        searchTerm = '';
+        clearBtn.style.display = 'none';
+        filterTicketsBySearch();
+        searchInput.focus();
+    });
+    
+    // Keyboard shortcut: Ctrl/Cmd + K to focus search
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        }
+    });
+}
+
+function filterTicketsBySearch() {
+    // Get all ticket cards
+    const allTicketCards = document.querySelectorAll('.ticket-card');
+    const allTicketGroups = document.querySelectorAll('.ticket-group');
+    
+    if (!searchTerm) {
+        // Show all tickets
+        allTicketCards.forEach(card => {
+            card.classList.remove('search-hidden');
+            // Remove highlights
+            removeHighlights(card);
+        });
+        allTicketGroups.forEach(group => {
+            group.classList.remove('search-hidden');
+        });
+        // Remove search info
+        removeSearchResultsInfo();
+        return;
+    }
+    
+    let matchCount = 0;
+    
+    allTicketCards.forEach(card => {
+        const ticketId = card.querySelector('.ticket-id')?.textContent?.toLowerCase() || '';
+        const ticketName = card.querySelector('.ticket-name')?.textContent?.toLowerCase() || '';
+        const ticketTester = card.querySelector('.ticket-tester')?.textContent?.toLowerCase() || '';
+        const ticketStatus = card.querySelector('.ticket-status')?.textContent?.toLowerCase() || '';
+        
+        const matches = ticketId.includes(searchTerm) || 
+                       ticketName.includes(searchTerm) || 
+                       ticketTester.includes(searchTerm) ||
+                       ticketStatus.includes(searchTerm);
+        
+        if (matches) {
+            card.classList.remove('search-hidden');
+            highlightSearchTerm(card, searchTerm);
+            matchCount++;
+        } else {
+            card.classList.add('search-hidden');
+            removeHighlights(card);
+        }
+    });
+    
+    // Hide empty groups
+    allTicketGroups.forEach(group => {
+        const visibleCards = group.querySelectorAll('.ticket-card:not(.search-hidden)');
+        if (visibleCards.length === 0) {
+            group.classList.add('search-hidden');
+        } else {
+            group.classList.remove('search-hidden');
+        }
+    });
+    
+    // Show search results info
+    showSearchResultsInfo(matchCount, searchTerm);
+}
+
+function highlightSearchTerm(card, term) {
+    // Remove existing highlights first
+    removeHighlights(card);
+    
+    const elementsToHighlight = [
+        card.querySelector('.ticket-id'),
+        card.querySelector('.ticket-name'),
+        card.querySelector('.ticket-tester')
+    ];
+    
+    elementsToHighlight.forEach(el => {
+        if (el && el.textContent.toLowerCase().includes(term)) {
+            const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+            el.innerHTML = el.textContent.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+    });
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function removeHighlights(card) {
+    const highlighted = card.querySelectorAll('.search-highlight');
+    highlighted.forEach(span => {
+        const parent = span.parentNode;
+        parent.replaceChild(document.createTextNode(span.textContent), span);
+        parent.normalize();
+    });
+}
+
+function showSearchResultsInfo(count, term) {
+    removeSearchResultsInfo();
+    
+    const currentWeekContainer = document.getElementById('nextWeekTickets');
+    const nextWeekContainer = document.getElementById('nextWeekPlanTicketsContainer');
+    
+    [currentWeekContainer, nextWeekContainer].forEach(container => {
+        if (!container) return;
+        
+        const visibleInContainer = container.querySelectorAll('.ticket-card:not(.search-hidden)').length;
+        
+        if (visibleInContainer > 0 || count === 0) {
+            const info = document.createElement('div');
+            info.className = 'search-results-info';
+            info.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <span><span class="count">${visibleInContainer}</span> result${visibleInContainer !== 1 ? 's' : ''} for "<span class="term">${escapeHtml(term)}</span>"</span>
+            `;
+            container.insertBefore(info, container.firstChild);
+        }
+    });
+}
+
+function removeSearchResultsInfo() {
+    document.querySelectorAll('.search-results-info').forEach(el => el.remove());
+}
+
+// Initialize search when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeSearch);
+
+// =====================
+// Import/Export Functionality
+// =====================
+
+function initializeImportExport() {
+    const exportBtn = document.getElementById('exportDataBtn');
+    const importBtn = document.getElementById('importDataBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportData);
+    }
+    
+    if (importBtn && importFileInput) {
+        importBtn.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', handleImportFile);
+    }
+}
+
+function exportData() {
+    const nextWeekStart = new Date(state.currentWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    
+    const exportData = {
+        exportDate: new Date().toISOString(),
+        appVersion: '1.0',
+        currentWeekStart: state.currentWeekStart.toISOString(),
+        data: {
+            currentWeekTickets: state.currentWeekTickets,
+            nextWeekPlanTickets: state.nextWeekPlanTickets,
+            currentWeekCapacity: state.currentWeekCapacity,
+            nextWeekCapacity: state.nextWeekCapacity
+        },
+        testers: TESTERS
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    const dateStr = new Date().toISOString().split('T')[0];
+    a.download = `planqc_backup_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }, 100);
+    
+    showToast('Data exported successfully!', 'success');
+}
+
+function handleImportFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const importedData = JSON.parse(event.target.result);
+            
+            // Validate the imported data structure
+            if (!importedData.data || !importedData.appVersion) {
+                throw new Error('Invalid file format');
+            }
+            
+            // Show confirmation modal
+            showImportConfirmModal(importedData);
+            
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast('Failed to import: Invalid file format', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+    
+    // Reset the input so the same file can be selected again
+    e.target.value = '';
+}
+
+function showImportConfirmModal(importedData) {
+    const ticketCount = (importedData.data.currentWeekTickets?.length || 0) + 
+                        (importedData.data.nextWeekPlanTickets?.length || 0);
+    const exportDate = new Date(importedData.exportDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    
+    const confirmed = confirm(
+        `Import Data?\n\n` +
+        `This backup contains:\n` +
+        `• ${ticketCount} tickets\n` +
+        `• Export date: ${exportDate}\n\n` +
+        `Choose how to import:\n` +
+        `• OK = Merge with existing data\n` +
+        `• Cancel = Abort import\n\n` +
+        `Note: To replace all data, please clear existing data first.`
+    );
+    
+    if (confirmed) {
+        importData(importedData, 'merge');
+    }
+}
+
+function importData(importedData, mode) {
+    try {
+        if (mode === 'merge') {
+            // Merge tickets (avoid duplicates by id)
+            const existingCurrentIds = new Set(state.currentWeekTickets.map(t => t.id));
+            const existingNextIds = new Set(state.nextWeekPlanTickets.map(t => t.id));
+            
+            if (importedData.data.currentWeekTickets) {
+                importedData.data.currentWeekTickets.forEach(ticket => {
+                    if (!existingCurrentIds.has(ticket.id)) {
+                        state.currentWeekTickets.push(ticket);
+                    }
+                });
+            }
+            
+            if (importedData.data.nextWeekPlanTickets) {
+                importedData.data.nextWeekPlanTickets.forEach(ticket => {
+                    if (!existingNextIds.has(ticket.id)) {
+                        state.nextWeekPlanTickets.push(ticket);
+                    }
+                });
+            }
+            
+            // Merge capacity (overwrite per tester)
+            if (importedData.data.currentWeekCapacity) {
+                Object.assign(state.currentWeekCapacity, importedData.data.currentWeekCapacity);
+            }
+            if (importedData.data.nextWeekCapacity) {
+                Object.assign(state.nextWeekCapacity, importedData.data.nextWeekCapacity);
+            }
+        } else {
+            // Replace mode
+            state.currentWeekTickets = importedData.data.currentWeekTickets || [];
+            state.nextWeekPlanTickets = importedData.data.nextWeekPlanTickets || [];
+            state.currentWeekCapacity = importedData.data.currentWeekCapacity || {};
+            state.nextWeekCapacity = importedData.data.nextWeekCapacity || {};
+            initializeCapacity();
+        }
+        
+        // Save to Firebase and re-render
+        saveToStorage();
+        renderTickets();
+        
+        const ticketCount = (importedData.data.currentWeekTickets?.length || 0) + 
+                            (importedData.data.nextWeekPlanTickets?.length || 0);
+        showToast(`Imported ${ticketCount} tickets successfully!`, 'success');
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        showToast('Failed to import data', 'error');
+    }
+}
+
+// Initialize import/export when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeImportExport);

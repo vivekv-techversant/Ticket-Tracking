@@ -71,6 +71,37 @@
                     </svg>
                 </button>
             </div>
+            <!-- Search Box -->
+            <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="ticketSearch" placeholder="Search tickets..." autocomplete="off">
+                <button class="search-clear" id="clearSearch" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Import/Export Buttons -->
+            <div class="data-actions">
+                <button class="data-btn" id="exportDataBtn" title="Export Data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    Export
+                </button>
+                <button class="data-btn" id="importDataBtn" title="Import Data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    Import
+                </button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            </div>
+            
             <button class="report-btn" id="openReportModal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
