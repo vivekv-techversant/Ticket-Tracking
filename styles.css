@@ -3334,3 +3334,25 @@ form {
     color: var(--accent-orange);
 }
 
+/* Swimlanes search info wrapper */
+.swimlanes-search-info {
+    margin-bottom: 1rem;
+}
+
+.swimlanes-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    align-items: flex-start;
+}
+
+.tickets-container.swimlanes {
+    display: block;
+}
+
+.tickets-container.swimlanes .swimlanes-wrapper {
+    display: flex;
+}
+

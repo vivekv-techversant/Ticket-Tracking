@@ -306,10 +306,15 @@ function renderTicketCard(ticket, week, index) {
     const carriedClass = ticket.carriedOver ? 'carried-over' : '';
     const carriedToNextClass = ticket.carriedToNextWeek ? 'carried-to-next' : '';
     
+    // Apply search highlighting if search is active
+    const ticketIdDisplay = searchTerm ? highlightSearchTermInText(ticket.ticketId) : escapeHtml(ticket.ticketId);
+    const ticketNameDisplay = searchTerm ? highlightSearchTermInText(ticket.name) : escapeHtml(ticket.name);
+    const ticketTesterDisplay = searchTerm ? highlightSearchTermInText(ticket.tester) : escapeHtml(ticket.tester);
+    
     return `
         <div class="ticket-card ${statusClass} ${priorityClass} ${carriedClass} ${carriedToNextClass}" data-index="${index}" data-week="${week}">
             <div class="ticket-header">
-                <span class="ticket-id">${escapeHtml(ticket.ticketId)}</span>
+                <span class="ticket-id">${ticketIdDisplay}</span>
                 <div class="ticket-actions">
                     ${week === 'current' && !ticket.carriedToNextWeek ? `
                     <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="Copy to Next Week">
@@ -331,14 +336,14 @@ function renderTicketCard(ticket, week, index) {
                     </button>
                 </div>
             </div>
-            <div class="ticket-name">${escapeHtml(ticket.name)}</div>
+            <div class="ticket-name">${ticketNameDisplay}</div>
             <div class="ticket-meta">
                 <span class="ticket-tester">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    ${escapeHtml(ticket.tester)}
+                    ${ticketTesterDisplay}
                 </span>
                 <span class="ticket-hours">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -410,26 +415,58 @@ function renderEmptyState() {
 }
 
 function renderTickets() {
+    // Filter tickets by search term
+    const filteredCurrentWeekTickets = filterTicketsBySearchTerm(state.currentWeekTickets);
+    const filteredNextWeekPlanTickets = filterTicketsBySearchTerm(state.nextWeekPlanTickets);
+    
     // Current week tickets
+    let currentWeekHtml = '';
+    if (searchTerm) {
+        currentWeekHtml = getSearchResultsInfo(filteredCurrentWeekTickets.length, state.currentWeekTickets.length, 'Current Week');
+    }
+    
     if (state.currentWeekTickets.length === 0) {
         elements.nextWeekTickets.innerHTML = renderEmptyState();
         elements.nextWeekTickets.classList.remove('grouped');
+    } else if (filteredCurrentWeekTickets.length === 0 && searchTerm) {
+        elements.nextWeekTickets.innerHTML = currentWeekHtml + renderNoSearchResults();
+        elements.nextWeekTickets.classList.remove('grouped');
     } else {
-        renderTicketsByGroup(state.currentWeekTickets, 'current', elements.nextWeekTickets);
+        renderTicketsByGroup(filteredCurrentWeekTickets, 'current', elements.nextWeekTickets, currentWeekHtml);
     }
     
     // Next week plan tickets
+    let nextWeekHtml = '';
+    if (searchTerm) {
+        nextWeekHtml = getSearchResultsInfo(filteredNextWeekPlanTickets.length, state.nextWeekPlanTickets.length, 'Next Week');
+    }
+    
     if (state.nextWeekPlanTickets.length === 0) {
         elements.nextWeekPlanTicketsContainer.innerHTML = renderEmptyState();
         elements.nextWeekPlanTicketsContainer.classList.remove('grouped');
+    } else if (filteredNextWeekPlanTickets.length === 0 && searchTerm) {
+        elements.nextWeekPlanTicketsContainer.innerHTML = nextWeekHtml + renderNoSearchResults();
+        elements.nextWeekPlanTicketsContainer.classList.remove('grouped');
     } else {
-        renderTicketsByGroup(state.nextWeekPlanTickets, 'nextWeekPlan', elements.nextWeekPlanTicketsContainer);
+        renderTicketsByGroup(filteredNextWeekPlanTickets, 'nextWeekPlan', elements.nextWeekPlanTicketsContainer, nextWeekHtml);
     }
     
     updateStats();
     updateBleedOverSection();
     renderTesterCapacity();
     renderReestimationNotes();
+}
+
+function renderNoSearchResults() {
+    return `
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <p>No tickets match your search.</p>
+        </div>
+    `;
 }
 
 function renderReestimationNotes() {
@@ -506,15 +543,18 @@ function renderReestimationNotes() {
     }
 }
 
-function renderTicketsByGroup(tickets, weekType, container) {
+function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
     const groupBy = state.groupBy[weekType] || 'none';
     const viewMode = state.viewMode[weekType] || 'cards';
+    
+    // We need to find the original index for each ticket in the full array
+    const fullTickets = weekType === 'current' ? state.currentWeekTickets : state.nextWeekPlanTickets;
     
     // Handle swim lanes view
     if (viewMode === 'swimlanes') {
         container.classList.remove('grouped');
         container.classList.add('swimlanes');
-        renderSwimLanes(tickets, weekType, container, groupBy);
+        renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml);
         return;
     }
     
@@ -522,8 +562,11 @@ function renderTicketsByGroup(tickets, weekType, container) {
     
     if (groupBy === 'none') {
         container.classList.remove('grouped');
-        container.innerHTML = tickets
-            .map((ticket, index) => renderTicketCard(ticket, weekType === 'current' ? 'current' : 'nextWeekPlan', index))
+        container.innerHTML = prefixHtml + tickets
+            .map((ticket) => {
+                const originalIndex = fullTickets.findIndex(t => t.id === ticket.id);
+                return renderTicketCard(ticket, weekType === 'current' ? 'current' : 'nextWeekPlan', originalIndex);
+            })
             .join('');
         return;
     }
@@ -532,7 +575,7 @@ function renderTicketsByGroup(tickets, weekType, container) {
     
     // Group tickets
     const groups = {};
-    tickets.forEach((ticket, index) => {
+    tickets.forEach((ticket) => {
         let groupKey;
         if (groupBy === 'status') {
             groupKey = ticket.status;
@@ -545,7 +588,8 @@ function renderTicketsByGroup(tickets, weekType, container) {
         if (!groups[groupKey]) {
             groups[groupKey] = [];
         }
-        groups[groupKey].push({ ticket, index });
+        const originalIndex = fullTickets.findIndex(t => t.id === ticket.id);
+        groups[groupKey].push({ ticket, index: originalIndex });
     });
     
     // Sort groups
@@ -561,7 +605,7 @@ function renderTicketsByGroup(tickets, weekType, container) {
     }
     
     // Render groups
-    let html = '';
+    let html = prefixHtml;
     sortedKeys.forEach(key => {
         const groupTickets = groups[key];
         const totalHours = groupTickets.reduce((sum, item) => sum + item.ticket.estimatedHours, 0);
@@ -594,7 +638,10 @@ function renderTicketsByGroup(tickets, weekType, container) {
     container.innerHTML = html;
 }
 
-function renderSwimLanes(tickets, weekType, container, groupBy) {
+function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '') {
+    // We need to find the original index for each ticket in the full array
+    const fullTickets = weekType === 'current' ? state.currentWeekTickets : state.nextWeekPlanTickets;
+    
     // Determine lanes based on groupBy
     let lanes = [];
     let laneType = groupBy;
@@ -633,7 +680,7 @@ function renderSwimLanes(tickets, weekType, container, groupBy) {
         ticketsByLane[lane.key] = [];
     });
     
-    tickets.forEach((ticket, index) => {
+    tickets.forEach((ticket) => {
         let laneKey;
         if (laneType === 'status') {
             laneKey = ticket.status;
@@ -644,12 +691,14 @@ function renderSwimLanes(tickets, weekType, container, groupBy) {
         }
         
         if (ticketsByLane[laneKey]) {
-            ticketsByLane[laneKey].push({ ticket, index });
+            const originalIndex = fullTickets.findIndex(t => t.id === ticket.id);
+            ticketsByLane[laneKey].push({ ticket, index: originalIndex });
         }
     });
     
     // Render swim lanes as vertical columns
-    let html = '';
+    let html = prefixHtml ? `<div class="swimlanes-search-info">${prefixHtml}</div>` : '';
+    html += '<div class="swimlanes-wrapper">';
     lanes.forEach(lane => {
         const laneTickets = ticketsByLane[lane.key] || [];
         const totalHours = laneTickets.reduce((sum, item) => sum + item.ticket.estimatedHours, 0);
@@ -663,25 +712,31 @@ function renderSwimLanes(tickets, weekType, container, groupBy) {
             indicatorClass = 'tester';
         }
         
-        html += `
-            <div class="swimlane">
-                <div class="swimlane-header">
-                    <div class="swimlane-indicator ${indicatorClass}"></div>
-                    <div class="swimlane-header-info">
-                        <span class="swimlane-title">${escapeHtml(lane.name)}</span>
-                        <span class="swimlane-count">${laneTickets.length}</span>
+        // Hide empty lanes during search
+        const hideEmpty = searchTerm && laneTickets.length === 0;
+        
+        if (!hideEmpty) {
+            html += `
+                <div class="swimlane">
+                    <div class="swimlane-header">
+                        <div class="swimlane-indicator ${indicatorClass}"></div>
+                        <div class="swimlane-header-info">
+                            <span class="swimlane-title">${escapeHtml(lane.name)}</span>
+                            <span class="swimlane-count">${laneTickets.length}</span>
+                        </div>
+                        <div class="swimlane-hours">${totalHours}h total</div>
                     </div>
-                    <div class="swimlane-hours">${totalHours}h total</div>
+                    <div class="swimlane-cards">
+                        ${laneTickets.length > 0 
+                            ? laneTickets.map(item => renderTicketCard(item.ticket, weekType === 'current' ? 'current' : 'nextWeekPlan', item.index)).join('')
+                            : '<div class="swimlane-empty">No tickets</div>'
+                        }
+                    </div>
                 </div>
-                <div class="swimlane-cards">
-                    ${laneTickets.length > 0 
-                        ? laneTickets.map(item => renderTicketCard(item.ticket, weekType === 'current' ? 'current' : 'nextWeekPlan', item.index)).join('')
-                        : '<div class="swimlane-empty">No tickets</div>'
-                    }
-                </div>
-            </div>
-        `;
+            `;
+        }
     });
+    html += '</div>';
     
     container.innerHTML = html;
 }
@@ -1862,14 +1917,15 @@ function initializeSearch() {
     searchInput.addEventListener('input', (e) => {
         searchTerm = e.target.value.trim().toLowerCase();
         clearBtn.style.display = searchTerm ? 'flex' : 'none';
-        filterTicketsBySearch();
+        // Re-render tickets with search filter applied
+        renderTickets();
     });
     
     clearBtn.addEventListener('click', () => {
         searchInput.value = '';
         searchTerm = '';
         clearBtn.style.display = 'none';
-        filterTicketsBySearch();
+        renderTickets();
         searchInput.focus();
     });
     
@@ -1883,122 +1939,46 @@ function initializeSearch() {
     });
 }
 
-function filterTicketsBySearch() {
-    // Get all ticket cards
-    const allTicketCards = document.querySelectorAll('.ticket-card');
-    const allTicketGroups = document.querySelectorAll('.ticket-group');
+function filterTicketsBySearchTerm(tickets) {
+    if (!searchTerm) return tickets;
     
-    if (!searchTerm) {
-        // Show all tickets
-        allTicketCards.forEach(card => {
-            card.classList.remove('search-hidden');
-            // Remove highlights
-            removeHighlights(card);
-        });
-        allTicketGroups.forEach(group => {
-            group.classList.remove('search-hidden');
-        });
-        // Remove search info
-        removeSearchResultsInfo();
-        return;
-    }
-    
-    let matchCount = 0;
-    
-    allTicketCards.forEach(card => {
-        const ticketId = card.querySelector('.ticket-id')?.textContent?.toLowerCase() || '';
-        const ticketName = card.querySelector('.ticket-name')?.textContent?.toLowerCase() || '';
-        const ticketTester = card.querySelector('.ticket-tester')?.textContent?.toLowerCase() || '';
-        const ticketStatus = card.querySelector('.ticket-status')?.textContent?.toLowerCase() || '';
+    return tickets.filter(ticket => {
+        const ticketId = (ticket.ticketId || '').toLowerCase();
+        const ticketName = (ticket.name || '').toLowerCase();
+        const ticketTester = (ticket.tester || '').toLowerCase();
+        const ticketStatus = (ticket.status || '').toLowerCase();
         
-        const matches = ticketId.includes(searchTerm) || 
-                       ticketName.includes(searchTerm) || 
-                       ticketTester.includes(searchTerm) ||
-                       ticketStatus.includes(searchTerm);
-        
-        if (matches) {
-            card.classList.remove('search-hidden');
-            highlightSearchTerm(card, searchTerm);
-            matchCount++;
-        } else {
-            card.classList.add('search-hidden');
-            removeHighlights(card);
-        }
+        return ticketId.includes(searchTerm) || 
+               ticketName.includes(searchTerm) || 
+               ticketTester.includes(searchTerm) ||
+               ticketStatus.includes(searchTerm);
     });
-    
-    // Hide empty groups
-    allTicketGroups.forEach(group => {
-        const visibleCards = group.querySelectorAll('.ticket-card:not(.search-hidden)');
-        if (visibleCards.length === 0) {
-            group.classList.add('search-hidden');
-        } else {
-            group.classList.remove('search-hidden');
-        }
-    });
-    
-    // Show search results info
-    showSearchResultsInfo(matchCount, searchTerm);
 }
 
-function highlightSearchTerm(card, term) {
-    // Remove existing highlights first
-    removeHighlights(card);
+function highlightSearchTermInText(text) {
+    if (!searchTerm || !text) return escapeHtml(text);
     
-    const elementsToHighlight = [
-        card.querySelector('.ticket-id'),
-        card.querySelector('.ticket-name'),
-        card.querySelector('.ticket-tester')
-    ];
-    
-    elementsToHighlight.forEach(el => {
-        if (el && el.textContent.toLowerCase().includes(term)) {
-            const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
-            el.innerHTML = el.textContent.replace(regex, '<span class="search-highlight">$1</span>');
-        }
-    });
+    const escapedText = escapeHtml(text);
+    const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+    return escapedText.replace(regex, '<span class="search-highlight">$1</span>');
 }
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function removeHighlights(card) {
-    const highlighted = card.querySelectorAll('.search-highlight');
-    highlighted.forEach(span => {
-        const parent = span.parentNode;
-        parent.replaceChild(document.createTextNode(span.textContent), span);
-        parent.normalize();
-    });
-}
-
-function showSearchResultsInfo(count, term) {
-    removeSearchResultsInfo();
+function getSearchResultsInfo(filteredCount, totalCount, weekName) {
+    if (!searchTerm) return '';
     
-    const currentWeekContainer = document.getElementById('nextWeekTickets');
-    const nextWeekContainer = document.getElementById('nextWeekPlanTicketsContainer');
-    
-    [currentWeekContainer, nextWeekContainer].forEach(container => {
-        if (!container) return;
-        
-        const visibleInContainer = container.querySelectorAll('.ticket-card:not(.search-hidden)').length;
-        
-        if (visibleInContainer > 0 || count === 0) {
-            const info = document.createElement('div');
-            info.className = 'search-results-info';
-            info.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                </svg>
-                <span><span class="count">${visibleInContainer}</span> result${visibleInContainer !== 1 ? 's' : ''} for "<span class="term">${escapeHtml(term)}</span>"</span>
-            `;
-            container.insertBefore(info, container.firstChild);
-        }
-    });
-}
-
-function removeSearchResultsInfo() {
-    document.querySelectorAll('.search-results-info').forEach(el => el.remove());
+    return `
+        <div class="search-results-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <span>Showing <span class="count">${filteredCount}</span> of ${totalCount} tickets matching "<span class="term">${escapeHtml(searchTerm)}</span>" in ${weekName}</span>
+        </div>
+    `;
 }
 
 // Initialize search when DOM is ready
