@@ -1585,9 +1585,30 @@ elements.confirmModal.addEventListener('click', (e) => {
     }
 });
 
-// Bleed Over Button
+// Bleed Over Button - opens confirmation modal
 document.getElementById('bleedOverBtnTop').addEventListener('click', openConfirmModal);
-document.getElementById('confirmTransfer').addEventListener('click', transferIncompleteTasks);
+document.getElementById('confirmTransfer').addEventListener('click', () => {
+    // Double confirmation for safety
+    const incompleteTasks = state.currentWeekTickets.filter(ticket => 
+        ticket.status !== 'approved-for-live' && 
+        ticket.status !== 'closed' &&
+        ticket.actualHours < ticket.estimatedHours &&
+        !ticket.carriedToNextWeek
+    );
+    
+    const confirmed = confirm(
+        `⚠️ Final Confirmation\n\n` +
+        `You are about to transfer ${incompleteTasks.length} incomplete task(s) to Next Week.\n\n` +
+        `This action will:\n` +
+        `• Copy remaining hours to Next Week\n` +
+        `• Mark original tickets as "→ Next Week"\n\n` +
+        `Are you sure you want to proceed?`
+    );
+    
+    if (confirmed) {
+        transferIncompleteTasks();
+    }
+});
 
 // Over Capacity Modal
 document.getElementById('cancelOverCapacity').addEventListener('click', closeOverCapacityModal);
