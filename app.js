@@ -834,8 +834,8 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
                            data-original="${data.totalHours}"
                            value="${data.totalHours}" 
                            placeholder="0"
-                           inputmode="decimal"
-                           autocomplete="off">
+                           autocomplete="off"
+                           spellcheck="false">
                 </td>
                 <td>
                     <span class="planned-hours ${data.statusClass}">${data.plannedHours}h</span>
@@ -862,16 +862,34 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     tableBody.querySelectorAll('.tester-total-hours').forEach(input => {
         // Save on blur (when user clicks away)
         input.addEventListener('blur', handleTesterHoursBlur);
+        
         // Save on Enter key
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 e.target.blur();
             }
-            // Allow all keys - don't prevent any input
         });
+        
+        // Only allow numbers, decimal point, and backspace/delete
+        input.addEventListener('input', (e) => {
+            // Remove any non-numeric characters except decimal point
+            let value = e.target.value;
+            // Allow only digits and one decimal point
+            value = value.replace(/[^0-9.]/g, '');
+            // Ensure only one decimal point
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            e.target.value = value;
+        });
+        
         // Select all text on focus for easy editing
         input.addEventListener('focus', (e) => {
-            setTimeout(() => e.target.select(), 0);
+            setTimeout(() => {
+                e.target.select();
+            }, 10);
         });
     });
     
@@ -963,20 +981,26 @@ function handleTesterHoursBlur(e) {
     const originalValue = parseFloat(e.target.dataset.original) || 40;
     let inputValue = e.target.value.trim();
     
-    // Parse the input value
-    let hours = parseFloat(inputValue);
+    // Parse the input value - treat empty as 0
+    let hours;
+    if (inputValue === '') {
+        hours = 0;
+    } else {
+        hours = parseFloat(inputValue);
+    }
     
-    // If invalid or empty, revert to original value
-    if (isNaN(hours) || inputValue === '') {
+    // If invalid (NaN), revert to original value
+    if (isNaN(hours)) {
         hours = originalValue;
-        e.target.value = hours;
     }
     
     // Ensure non-negative
     if (hours < 0) {
         hours = 0;
-        e.target.value = hours;
     }
+    
+    // Update the display
+    e.target.value = hours;
     
     const capacityData = weekType === 'current' ? state.currentWeekCapacity : state.nextWeekCapacity;
     
@@ -999,7 +1023,7 @@ function handleTesterHoursBlur(e) {
         setTimeout(() => {
             renderTesterCapacity();
             updateStats();
-        }, 50);
+        }, 100);
         
         showToast(`${tester}'s capacity updated to ${hours}h`, 'success');
     }
