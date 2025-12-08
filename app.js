@@ -765,9 +765,21 @@ function renderTesterCapacity() {
     renderWeekCapacity('nextWeekPlan', 'nextWeekCapacityTableBody', state.nextWeekCapacity);
 }
 
+// Track which input is currently being edited to prevent re-render issues
+let activeHoursInput = null;
+
 function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) return;
+    
+    // Check if user is currently editing an input in this table - don't re-render if so
+    const activeInput = tableBody.querySelector('.tester-total-hours:focus');
+    if (activeInput) {
+        // User is editing, don't re-render the table
+        // Just update the other cells (planned, unplanned, capacity bar)
+        updateCapacityDisplayOnly(weekType, tableBody, capacityData);
+        return;
+    }
     
     // Calculate data for all testers
     let testerData = TESTERS.map(tester => {
@@ -822,7 +834,8 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
                            data-original="${data.totalHours}"
                            value="${data.totalHours}" 
                            placeholder="0"
-                           inputmode="decimal">
+                           inputmode="decimal"
+                           autocomplete="off">
                 </td>
                 <td>
                     <span class="planned-hours ${data.statusClass}">${data.plannedHours}h</span>
@@ -854,15 +867,66 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
             if (e.key === 'Enter') {
                 e.target.blur();
             }
+            // Allow all keys - don't prevent any input
         });
         // Select all text on focus for easy editing
         input.addEventListener('focus', (e) => {
-            e.target.select();
+            setTimeout(() => e.target.select(), 0);
         });
     });
     
     // Update sort header icons
     updateSortHeaderIcons(weekType);
+}
+
+function updateCapacityDisplayOnly(weekType, tableBody, capacityData) {
+    // Update only the display cells, not the input fields
+    TESTERS.forEach(tester => {
+        const row = tableBody.querySelector(`tr[data-tester="${tester}"]`);
+        if (!row) return;
+        
+        const totalHours = capacityData[tester]?.totalHours ?? 40;
+        const plannedHours = calculateTesterPlannedHours(tester, weekType);
+        const unplannedHours = totalHours - plannedHours;
+        const percentage = totalHours > 0 ? Math.min((plannedHours / totalHours) * 100, 100) : 0;
+        
+        let statusClass = 'under';
+        if (plannedHours > totalHours) {
+            statusClass = 'over';
+        } else if (plannedHours === totalHours) {
+            statusClass = 'exact';
+        }
+        
+        // Update planned hours
+        const plannedEl = row.querySelector('.planned-hours');
+        if (plannedEl) {
+            plannedEl.className = `planned-hours ${statusClass}`;
+            plannedEl.textContent = `${plannedHours}h`;
+        }
+        
+        // Update unplanned hours
+        const unplannedEl = row.querySelector('.unplanned-hours');
+        if (unplannedEl) {
+            unplannedEl.className = `unplanned-hours ${unplannedHours >= 0 ? 'positive' : 'negative'}`;
+            unplannedEl.textContent = unplannedHours >= 0 ? `+${unplannedHours}h` : `${unplannedHours}h`;
+        }
+        
+        // Update capacity bar
+        const barFill = row.querySelector('.capacity-bar-fill');
+        const barBg = row.querySelector('.capacity-bar-bg');
+        if (barBg) {
+            if (percentage > 0) {
+                if (barFill) {
+                    barFill.className = `capacity-bar-fill ${statusClass}`;
+                    barFill.style.width = `${percentage}%`;
+                } else {
+                    barBg.innerHTML = `<div class="capacity-bar-fill ${statusClass}" style="width: ${percentage}%"></div>`;
+                }
+            } else if (barFill) {
+                barFill.remove();
+            }
+        }
+    });
 }
 
 function updateSortHeaderIcons(weekType) {
@@ -920,11 +984,23 @@ function handleTesterHoursBlur(e) {
         capacityData[tester] = {};
     }
     
-    // Only save if value actually changed
-    if (capacityData[tester].totalHours !== hours) {
+    // Only save and re-render if value actually changed
+    const previousValue = capacityData[tester].totalHours ?? 40;
+    if (previousValue !== hours) {
         capacityData[tester].totalHours = hours;
+        
+        // Update the data-original attribute for next edit
+        e.target.dataset.original = hours;
+        
+        // Save to Firebase
         saveToStorage();
-        renderTesterCapacity();
+        
+        // Use setTimeout to allow the blur to complete before re-rendering
+        setTimeout(() => {
+            renderTesterCapacity();
+            updateStats();
+        }, 50);
+        
         showToast(`${tester}'s capacity updated to ${hours}h`, 'success');
     }
 }
