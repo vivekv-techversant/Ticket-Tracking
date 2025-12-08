@@ -1,4 +1,5 @@
 // PlanQC Application
+// Version: 1.1.0 - Excel Export
 // =========================
 
 // Firebase Configuration
