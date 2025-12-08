@@ -2381,6 +2381,11 @@ form {
     background: var(--bg-tertiary);
 }
 
+/* Allow empty input while editing */
+.hours-input:placeholder-shown {
+    color: var(--text-muted);
+}
+
 /* Remove spinner arrows for number inputs */
 .hours-input::-webkit-outer-spin-button,
 .hours-input::-webkit-inner-spin-button {

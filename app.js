@@ -771,7 +771,7 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     
     // Calculate data for all testers
     let testerData = TESTERS.map(tester => {
-        const totalHours = capacityData[tester]?.totalHours || 40;
+        const totalHours = capacityData[tester]?.totalHours ?? 40;
         const plannedHours = calculateTesterPlannedHours(tester, weekType);
         const unplannedHours = totalHours - plannedHours;
         const percentage = totalHours > 0 ? Math.min((plannedHours / totalHours) * 100, 100) : 0;
@@ -815,13 +815,14 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
                     </div>
                 </td>
                 <td>
-                    <input type="number" 
+                    <input type="text" 
                            class="hours-input tester-total-hours" 
                            data-tester="${escapeHtml(data.tester)}"
                            data-week="${weekType}"
+                           data-original="${data.totalHours}"
                            value="${data.totalHours}" 
-                           min="0" 
-                           step="0.5">
+                           placeholder="0"
+                           inputmode="decimal">
                 </td>
                 <td>
                     <span class="planned-hours ${data.statusClass}">${data.plannedHours}h</span>
@@ -846,8 +847,18 @@ function renderWeekCapacity(weekType, tableBodyId, capacityData) {
     
     // Add event listeners to total hours inputs
     tableBody.querySelectorAll('.tester-total-hours').forEach(input => {
-        input.addEventListener('change', handleTesterHoursChange);
-        input.addEventListener('input', handleTesterHoursChange);
+        // Save on blur (when user clicks away)
+        input.addEventListener('blur', handleTesterHoursBlur);
+        // Save on Enter key
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.target.blur();
+            }
+        });
+        // Select all text on focus for easy editing
+        input.addEventListener('focus', (e) => {
+            e.target.select();
+        });
     });
     
     // Update sort header icons
@@ -882,20 +893,40 @@ function toggleCapacitySort(weekType) {
     renderTesterCapacity();
 }
 
-function handleTesterHoursChange(e) {
+function handleTesterHoursBlur(e) {
     const tester = e.target.dataset.tester;
     const weekType = e.target.dataset.week;
-    const hours = parseFloat(e.target.value) || 0;
+    const originalValue = parseFloat(e.target.dataset.original) || 40;
+    let inputValue = e.target.value.trim();
+    
+    // Parse the input value
+    let hours = parseFloat(inputValue);
+    
+    // If invalid or empty, revert to original value
+    if (isNaN(hours) || inputValue === '') {
+        hours = originalValue;
+        e.target.value = hours;
+    }
+    
+    // Ensure non-negative
+    if (hours < 0) {
+        hours = 0;
+        e.target.value = hours;
+    }
     
     const capacityData = weekType === 'current' ? state.currentWeekCapacity : state.nextWeekCapacity;
     
     if (!capacityData[tester]) {
         capacityData[tester] = {};
     }
-    capacityData[tester].totalHours = hours;
     
-    saveToStorage();
-    renderTesterCapacity();
+    // Only save if value actually changed
+    if (capacityData[tester].totalHours !== hours) {
+        capacityData[tester].totalHours = hours;
+        saveToStorage();
+        renderTesterCapacity();
+        showToast(`${tester}'s capacity updated to ${hours}h`, 'success');
+    }
 }
 
 function updateStats() {
