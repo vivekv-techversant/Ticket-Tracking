@@ -35,6 +35,41 @@ const TESTERS = [
     'Vincy JP'
 ];
 
+// Status Categories Mapping
+const STATUS_CATEGORIES = {
+    'qa-india': {
+        name: 'QA (India)',
+        statuses: ['qc-testing', 'qc-testing-in-progress', 'qc-testing-hold']
+    },
+    'bis-qa': {
+        name: 'BIS QA',
+        statuses: ['bis-testing', 'testing-in-progress']
+    },
+    'dev': {
+        name: 'Dev',
+        statuses: ['approved-for-live', 'in-progress', 'qc-review-fail', 'tested-awaiting-fixes', 'nil']
+    },
+    'closed': {
+        name: 'Closed',
+        statuses: ['closed']
+    }
+};
+
+// Get category for a status
+function getStatusCategory(status) {
+    for (const [categoryKey, category] of Object.entries(STATUS_CATEGORIES)) {
+        if (category.statuses.includes(status)) {
+            return categoryKey;
+        }
+    }
+    return 'dev'; // Default to Dev if not found
+}
+
+// Get category display name
+function getCategoryName(categoryKey) {
+    return STATUS_CATEGORIES[categoryKey]?.name || categoryKey;
+}
+
 // State Management
 const state = {
     currentWeekStart: null, // Will be initialized in DOMContentLoaded
@@ -602,6 +637,8 @@ function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
         let groupKey;
         if (groupBy === 'status') {
             groupKey = ticket.status;
+        } else if (groupBy === 'category') {
+            groupKey = getStatusCategory(ticket.status);
         } else if (groupBy === 'tester') {
             groupKey = ticket.tester;
         } else if (groupBy === 'priority') {
@@ -623,6 +660,9 @@ function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
     } else if (groupBy === 'status') {
         const statusOrder = ['in-progress', 'qc-testing', 'qc-testing-in-progress', 'testing-in-progress', 'bis-testing', 'qc-testing-hold', 'qc-review-fail', 'tested-awaiting-fixes', 'approved-for-live', 'closed', 'nil'];
         sortedKeys.sort((a, b) => statusOrder.indexOf(a) - statusOrder.indexOf(b));
+    } else if (groupBy === 'category') {
+        const categoryOrder = ['qa-india', 'bis-qa', 'dev', 'closed'];
+        sortedKeys.sort((a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b));
     } else {
         sortedKeys.sort();
     }
@@ -639,6 +679,9 @@ function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
         if (groupBy === 'status') {
             headerClass = `status-${key}`;
             displayName = formatStatus(key);
+        } else if (groupBy === 'category') {
+            headerClass = `category-${key}`;
+            displayName = getCategoryName(key);
         } else if (groupBy === 'priority') {
             headerClass = `priority-${key}`;
             displayName = key.charAt(0).toUpperCase() + key.slice(1) + ' Priority';
@@ -684,6 +727,14 @@ function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '')
             { key: 'approved-for-live', name: 'Approved for Live' },
             { key: 'closed', name: 'Closed' }
         ];
+    } else if (groupBy === 'category') {
+        laneType = 'category';
+        lanes = [
+            { key: 'qa-india', name: 'QA (India)' },
+            { key: 'bis-qa', name: 'BIS QA' },
+            { key: 'dev', name: 'Dev' },
+            { key: 'closed', name: 'Closed' }
+        ];
     } else if (groupBy === 'tester') {
         laneType = 'tester';
         lanes = TESTERS.map(t => ({ key: t, name: t }));
@@ -707,6 +758,8 @@ function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '')
         let laneKey;
         if (laneType === 'status') {
             laneKey = ticket.status;
+        } else if (laneType === 'category') {
+            laneKey = getStatusCategory(ticket.status);
         } else if (laneType === 'tester') {
             laneKey = ticket.tester;
         } else if (laneType === 'priority') {
@@ -729,6 +782,8 @@ function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '')
         let indicatorClass = '';
         if (laneType === 'status') {
             indicatorClass = `status-${lane.key}`;
+        } else if (laneType === 'category') {
+            indicatorClass = `category-${lane.key}`;
         } else if (laneType === 'priority') {
             indicatorClass = `priority-${lane.key}`;
         } else if (laneType === 'tester') {
