@@ -1919,7 +1919,7 @@ async function generateExcelReport() {
     const wb = XLSX.utils.book_new();
     
     // ===== Sheet 1: Ticket Report =====
-    const headers = ['Week', 'Tester Name', 'Ticket ID', 'Summary', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours'];
+    const headers = ['Week', 'Tester Name', 'Ticket ID', 'Summary', 'Status', 'Responsibility', 'Priority', 'Estimated Hours', 'Actual Hours'];
     
     const rows = tickets.map(ticket => ({
         'Week': formatWeekRange(ticket.weekStart),
@@ -1927,6 +1927,7 @@ async function generateExcelReport() {
         'Ticket ID': ticket.ticketId,
         'Summary': ticket.name,
         'Status': formatStatus(ticket.status),
+        'Responsibility': getCategoryName(getStatusCategory(ticket.status)),
         'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
         'Estimated Hours': ticket.estimatedHours,
         'Actual Hours': ticket.actualHours
@@ -1941,6 +1942,7 @@ async function generateExcelReport() {
         { wch: 15 },  // Ticket ID
         { wch: 40 },  // Summary
         { wch: 20 },  // Status
+        { wch: 12 },  // Responsibility
         { wch: 10 },  // Priority
         { wch: 15 },  // Estimated Hours
         { wch: 12 }   // Actual Hours
@@ -2316,13 +2318,14 @@ function exportAllDataToExcel() {
     const wb = XLSX.utils.book_new();
     
     // ===== Sheet 1: Current Week Tickets =====
-    const currentWeekHeaders = ['Week', 'Ticket ID', 'Summary', 'Tester', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
+    const currentWeekHeaders = ['Week', 'Ticket ID', 'Summary', 'Tester', 'Status', 'Responsibility', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
     const currentWeekRows = state.currentWeekTickets.map(ticket => ({
         'Week': formatWeekRange(state.currentWeekStart),
         'Ticket ID': ticket.ticketId,
         'Summary': ticket.name,
         'Tester': ticket.tester,
         'Status': formatStatus(ticket.status),
+        'Responsibility': getCategoryName(getStatusCategory(ticket.status)),
         'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
         'Estimated Hours': ticket.estimatedHours,
         'Actual Hours': ticket.actualHours,
@@ -2333,7 +2336,7 @@ function exportAllDataToExcel() {
     
     const wsCurrentWeek = XLSX.utils.json_to_sheet(currentWeekRows, { header: currentWeekHeaders });
     wsCurrentWeek['!cols'] = [
-        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
         { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
     ];
     XLSX.utils.book_append_sheet(wb, wsCurrentWeek, `Current Week (${formatDate(state.currentWeekStart)})`);
@@ -2345,6 +2348,7 @@ function exportAllDataToExcel() {
         'Summary': ticket.name,
         'Tester': ticket.tester,
         'Status': formatStatus(ticket.status),
+        'Responsibility': getCategoryName(getStatusCategory(ticket.status)),
         'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
         'Estimated Hours': ticket.estimatedHours,
         'Actual Hours': ticket.actualHours,
@@ -2355,7 +2359,7 @@ function exportAllDataToExcel() {
     
     const wsNextWeek = XLSX.utils.json_to_sheet(nextWeekRows, { header: currentWeekHeaders });
     wsNextWeek['!cols'] = [
-        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 10 },
+        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
         { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
     ];
     XLSX.utils.book_append_sheet(wb, wsNextWeek, `Next Week (${formatDate(nextWeekStart)})`);
