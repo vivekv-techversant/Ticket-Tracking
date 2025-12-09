@@ -318,25 +318,41 @@ function renderTicketCard(ticket, week, index) {
     const ticketNameDisplay = searchTerm ? highlightSearchTermInText(ticket.name) : escapeHtml(ticket.name);
     const ticketTesterDisplay = searchTerm ? highlightSearchTermInText(ticket.tester) : escapeHtml(ticket.tester);
     
+    // Check if ticket has today's plan
+    const hasTodayPlan = ticket.dailyPlans && ticket.dailyPlans.some(p => {
+        const planDate = new Date(p.date).toDateString();
+        const today = new Date().toDateString();
+        return planDate === today && p.type === 'plan';
+    });
+    
     return `
-        <div class="ticket-card ${statusClass} ${priorityClass} ${carriedClass} ${carriedToNextClass}" data-index="${index}" data-week="${week}">
+        <div class="ticket-card clickable ${statusClass} ${priorityClass} ${carriedClass} ${carriedToNextClass}" data-index="${index}" data-week="${week}" onclick="handleTicketCardClick(event, '${week}', ${index})">
             <div class="ticket-header">
                 <span class="ticket-id">${ticketIdDisplay}</span>
+                ${hasTodayPlan ? `
+                    <span class="daily-plan-badge" title="Has today's plan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                        Today
+                    </span>
+                ` : ''}
                 <div class="ticket-actions">
                     ${week === 'current' && !ticket.carriedToNextWeek ? `
-                    <button class="ticket-action-btn move" onclick="moveTicket('${week}', ${index})" title="Copy to Next Week">
+                    <button class="ticket-action-btn move" onclick="event.stopPropagation(); moveTicket('${week}', ${index})" title="Copy to Next Week">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                     </button>
                     ` : ''}
-                    <button class="ticket-action-btn edit" onclick="editTicket('${week}', ${index})" title="Edit">
+                    <button class="ticket-action-btn edit" onclick="event.stopPropagation(); editTicket('${week}', ${index})" title="Edit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                     </button>
-                    <button class="ticket-action-btn delete" onclick="deleteTicket('${week}', ${index})" title="Delete">
+                    <button class="ticket-action-btn delete" onclick="event.stopPropagation(); deleteTicket('${week}', ${index})" title="Delete">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                         </svg>
@@ -2314,3 +2330,343 @@ function exportAllDataToExcel() {
 
 // Initialize export when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeExport);
+
+// =====================
+// Daily Planning Functionality
+// =====================
+
+let dailyPlanState = {
+    currentTicket: null,
+    currentWeek: null,
+    currentIndex: null,
+    activeTab: 'yesterday'
+};
+
+function formatDayDate(date) {
+    const options = { weekday: 'long', month: 'short', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+}
+
+function getYesterday() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+}
+
+function getToday() {
+    return new Date();
+}
+
+function getDailyPlanKey(ticketId, date) {
+    const dateStr = date.toISOString().split('T')[0];
+    return `${ticketId}_${dateStr}`;
+}
+
+function openDailyPlanModal(week, index) {
+    const tickets = (week === 'current' || week === 'next') ? state.currentWeekTickets : state.nextWeekPlanTickets;
+    const ticket = tickets[index];
+    
+    if (!ticket) return;
+    
+    dailyPlanState.currentTicket = ticket;
+    dailyPlanState.currentWeek = week;
+    dailyPlanState.currentIndex = index;
+    dailyPlanState.activeTab = 'yesterday';
+    
+    // Populate ticket info
+    document.getElementById('dailyPlanTicketId').textContent = ticket.ticketId;
+    document.getElementById('dailyPlanTicketName').textContent = ticket.name;
+    document.getElementById('dailyPlanTicketTester').textContent = ticket.tester;
+    document.getElementById('dailyPlanTicketHours').textContent = `${ticket.actualHours}h / ${ticket.estimatedHours}h`;
+    
+    // Set status badge
+    const statusEl = document.getElementById('dailyPlanTicketStatus');
+    statusEl.textContent = formatStatus(ticket.status);
+    statusEl.className = 'ticket-info-status ' + ticket.status;
+    
+    // Set dates
+    document.getElementById('yesterdayDate').textContent = formatDayDate(getYesterday());
+    document.getElementById('todayDate').textContent = formatDayDate(getToday());
+    
+    // Load existing daily plan data
+    loadDailyPlanData(ticket);
+    
+    // Set active tab
+    switchDailyTab('yesterday');
+    
+    // Load daily log history
+    loadDailyLogHistory(ticket);
+    
+    // Show modal
+    document.getElementById('dailyPlanModal').classList.add('active');
+}
+
+function closeDailyPlanModal() {
+    document.getElementById('dailyPlanModal').classList.remove('active');
+    dailyPlanState.currentTicket = null;
+    dailyPlanState.currentWeek = null;
+    dailyPlanState.currentIndex = null;
+    
+    // Reset form fields
+    document.getElementById('yesterdayHours').value = 0;
+    document.getElementById('yesterdayNotes').value = '';
+    document.getElementById('yesterdayStatus').value = 'nil';
+    document.getElementById('todayPlannedHours').value = 0;
+    document.getElementById('todayTasks').value = '';
+    document.getElementById('todayGoal').value = 'continue';
+}
+
+function switchDailyTab(day) {
+    dailyPlanState.activeTab = day;
+    
+    // Update tab buttons
+    document.querySelectorAll('.daily-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.day === day);
+    });
+    
+    // Update panels
+    document.getElementById('yesterdayPanel').classList.toggle('active', day === 'yesterday');
+    document.getElementById('todayPanel').classList.toggle('active', day === 'today');
+}
+
+function loadDailyPlanData(ticket) {
+    // Initialize daily plans array if not exists
+    if (!ticket.dailyPlans) {
+        ticket.dailyPlans = [];
+    }
+    
+    const yesterday = getYesterday();
+    const today = getToday();
+    
+    // Find yesterday's plan
+    const yesterdayKey = getDailyPlanKey(ticket.id, yesterday);
+    const yesterdayPlan = ticket.dailyPlans.find(p => p.key === yesterdayKey);
+    
+    if (yesterdayPlan) {
+        document.getElementById('yesterdayHours').value = yesterdayPlan.hours || 0;
+        document.getElementById('yesterdayNotes').value = yesterdayPlan.notes || '';
+        document.getElementById('yesterdayStatus').value = yesterdayPlan.status || ticket.status;
+    } else {
+        document.getElementById('yesterdayHours').value = 0;
+        document.getElementById('yesterdayNotes').value = '';
+        document.getElementById('yesterdayStatus').value = ticket.status;
+    }
+    
+    // Find today's plan
+    const todayKey = getDailyPlanKey(ticket.id, today);
+    const todayPlan = ticket.dailyPlans.find(p => p.key === todayKey && p.type === 'plan');
+    
+    if (todayPlan) {
+        document.getElementById('todayPlannedHours').value = todayPlan.plannedHours || 0;
+        document.getElementById('todayTasks').value = todayPlan.tasks || '';
+        document.getElementById('todayGoal').value = todayPlan.goal || 'continue';
+    } else {
+        document.getElementById('todayPlannedHours').value = 0;
+        document.getElementById('todayTasks').value = '';
+        document.getElementById('todayGoal').value = 'continue';
+    }
+}
+
+function loadDailyLogHistory(ticket) {
+    const logContent = document.getElementById('dailyLogContent');
+    
+    if (!ticket.dailyPlans || ticket.dailyPlans.length === 0) {
+        logContent.innerHTML = `
+            <div class="daily-log-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                <p>No daily entries yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort by date descending
+    const sortedPlans = [...ticket.dailyPlans].sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+    });
+    
+    let html = '';
+    sortedPlans.forEach(plan => {
+        const planDate = new Date(plan.date);
+        const typeClass = plan.type === 'actual' ? 'actual' : 'plan';
+        const typeLabel = plan.type === 'actual' ? 'Actual' : 'Plan';
+        
+        html += `
+            <div class="daily-log-entry">
+                <div class="log-entry-header">
+                    <span class="log-entry-date">${formatDayDate(planDate)}</span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span class="log-entry-type ${typeClass}">${typeLabel}</span>
+                        <span class="log-entry-hours">${plan.hours || plan.plannedHours || 0}h</span>
+                    </div>
+                </div>
+                ${plan.notes || plan.tasks ? `<div class="log-entry-notes">${escapeHtml(plan.notes || plan.tasks)}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    logContent.innerHTML = html;
+}
+
+function saveDailyPlan() {
+    if (!dailyPlanState.currentTicket) return;
+    
+    const ticket = dailyPlanState.currentTicket;
+    const week = dailyPlanState.currentWeek;
+    const index = dailyPlanState.currentIndex;
+    
+    // Initialize daily plans array if not exists
+    if (!ticket.dailyPlans) {
+        ticket.dailyPlans = [];
+    }
+    
+    const yesterday = getYesterday();
+    const today = getToday();
+    
+    // Save yesterday's actual data
+    const yesterdayHours = parseFloat(document.getElementById('yesterdayHours').value) || 0;
+    const yesterdayNotes = document.getElementById('yesterdayNotes').value.trim();
+    const yesterdayStatus = document.getElementById('yesterdayStatus').value;
+    
+    if (yesterdayHours > 0 || yesterdayNotes) {
+        const yesterdayKey = getDailyPlanKey(ticket.id, yesterday);
+        const existingYesterdayIndex = ticket.dailyPlans.findIndex(p => p.key === yesterdayKey && p.type === 'actual');
+        
+        const yesterdayEntry = {
+            key: yesterdayKey,
+            type: 'actual',
+            date: yesterday.toISOString(),
+            hours: yesterdayHours,
+            notes: yesterdayNotes,
+            status: yesterdayStatus,
+            updatedAt: new Date().toISOString()
+        };
+        
+        if (existingYesterdayIndex >= 0) {
+            ticket.dailyPlans[existingYesterdayIndex] = yesterdayEntry;
+        } else {
+            ticket.dailyPlans.push(yesterdayEntry);
+        }
+        
+        // Update ticket's actual hours (add yesterday's hours to the total)
+        // Only add if this is a new entry or hours changed
+        if (existingYesterdayIndex < 0) {
+            ticket.actualHours = (ticket.actualHours || 0) + yesterdayHours;
+        } else {
+            const previousHours = ticket.dailyPlans[existingYesterdayIndex]?.hours || 0;
+            ticket.actualHours = (ticket.actualHours || 0) - previousHours + yesterdayHours;
+        }
+        
+        // Update ticket status if changed
+        if (yesterdayStatus !== ticket.status) {
+            ticket.status = yesterdayStatus;
+        }
+    }
+    
+    // Save today's plan
+    const todayPlannedHours = parseFloat(document.getElementById('todayPlannedHours').value) || 0;
+    const todayTasks = document.getElementById('todayTasks').value.trim();
+    const todayGoal = document.getElementById('todayGoal').value;
+    
+    if (todayPlannedHours > 0 || todayTasks) {
+        const todayKey = getDailyPlanKey(ticket.id, today);
+        const existingTodayIndex = ticket.dailyPlans.findIndex(p => p.key === todayKey && p.type === 'plan');
+        
+        const todayEntry = {
+            key: todayKey,
+            type: 'plan',
+            date: today.toISOString(),
+            plannedHours: todayPlannedHours,
+            tasks: todayTasks,
+            goal: todayGoal,
+            updatedAt: new Date().toISOString()
+        };
+        
+        if (existingTodayIndex >= 0) {
+            ticket.dailyPlans[existingTodayIndex] = todayEntry;
+        } else {
+            ticket.dailyPlans.push(todayEntry);
+        }
+    }
+    
+    // Update the ticket in state
+    const tickets = (week === 'current' || week === 'next') ? state.currentWeekTickets : state.nextWeekPlanTickets;
+    tickets[index] = ticket;
+    
+    // Save to Firebase
+    saveToStorage();
+    
+    // Re-render tickets
+    renderTickets();
+    
+    // Close modal
+    closeDailyPlanModal();
+    
+    showToast('Daily plan saved successfully!', 'success');
+}
+
+function toggleDailyLog() {
+    const logContent = document.getElementById('dailyLogContent');
+    logContent.classList.toggle('collapsed');
+    
+    // Update chevron rotation
+    const chevron = document.querySelector('.log-chevron');
+    if (logContent.classList.contains('collapsed')) {
+        chevron.style.transform = 'rotate(-90deg)';
+    } else {
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Initialize Daily Plan Modal Event Listeners
+function initializeDailyPlanModal() {
+    // Close button
+    document.getElementById('closeDailyPlanModal').addEventListener('click', closeDailyPlanModal);
+    document.getElementById('cancelDailyPlan').addEventListener('click', closeDailyPlanModal);
+    
+    // Save button
+    document.getElementById('saveDailyPlan').addEventListener('click', saveDailyPlan);
+    
+    // Tab switching
+    document.querySelectorAll('.daily-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            switchDailyTab(tab.dataset.day);
+        });
+    });
+    
+    // Toggle daily log
+    document.getElementById('toggleDailyLog').addEventListener('click', toggleDailyLog);
+    
+    // Close on overlay click
+    document.getElementById('dailyPlanModal').addEventListener('click', (e) => {
+        if (e.target.id === 'dailyPlanModal') {
+            closeDailyPlanModal();
+        }
+    });
+    
+    // Keyboard shortcut to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('dailyPlanModal').classList.contains('active')) {
+            closeDailyPlanModal();
+        }
+    });
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeDailyPlanModal);
+
+// Handle ticket card click - opens daily plan modal
+function handleTicketCardClick(event, week, index) {
+    // Don't open if clicking on action buttons (they have stopPropagation but just in case)
+    if (event.target.closest('.ticket-actions') || event.target.closest('.ticket-action-btn')) {
+        return;
+    }
+    openDailyPlanModal(week, index);
+}
+
+// Make functions globally available
+window.openDailyPlanModal = openDailyPlanModal;
+window.handleTicketCardClick = handleTicketCardClick;

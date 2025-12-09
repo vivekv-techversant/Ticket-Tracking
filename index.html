@@ -550,6 +550,155 @@
         </div>
     </div>
 
+    <!-- Daily Plan Modal -->
+    <div class="modal-overlay" id="dailyPlanModal">
+        <div class="modal daily-plan-modal">
+            <div class="modal-header">
+                <h3>Daily Planning</h3>
+                <button class="modal-close" id="closeDailyPlanModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="daily-plan-content">
+                <!-- Ticket Info Header -->
+                <div class="daily-plan-ticket-info">
+                    <div class="ticket-info-row">
+                        <span class="ticket-info-id" id="dailyPlanTicketId">TICK-1234</span>
+                        <span class="ticket-info-status" id="dailyPlanTicketStatus">In Progress</span>
+                    </div>
+                    <div class="ticket-info-name" id="dailyPlanTicketName">Ticket Name Here</div>
+                    <div class="ticket-info-meta">
+                        <span class="ticket-info-tester">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <span id="dailyPlanTicketTester">Tester Name</span>
+                        </span>
+                        <span class="ticket-info-hours">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            <span id="dailyPlanTicketHours">0h / 8h</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Day Selector Tabs -->
+                <div class="daily-plan-tabs">
+                    <button class="daily-tab active" data-day="yesterday">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        Yesterday's Actual
+                    </button>
+                    <button class="daily-tab" data-day="today">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                        Today's Plan
+                    </button>
+                </div>
+
+                <!-- Yesterday's Actual Panel -->
+                <div class="daily-plan-panel active" id="yesterdayPanel">
+                    <div class="panel-header">
+                        <span class="panel-date" id="yesterdayDate">Monday, Dec 8</span>
+                        <span class="panel-badge actual">Actual Work Done</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="yesterdayHours">Hours Worked</label>
+                        <div class="hours-input-group">
+                            <input type="number" id="yesterdayHours" min="0" max="24" step="0.5" placeholder="0" value="0">
+                            <span class="hours-suffix">hours</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="yesterdayNotes">Work Summary</label>
+                        <textarea id="yesterdayNotes" rows="3" placeholder="What did you accomplish yesterday? Any blockers or issues?"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="yesterdayStatus">Status at End of Day</label>
+                        <select id="yesterdayStatus">
+                            <option value="nil">Nil</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="qc-testing">QC Testing</option>
+                            <option value="qc-testing-in-progress">QC Testing In Progress</option>
+                            <option value="qc-testing-hold">QC Testing Hold</option>
+                            <option value="qc-review-fail">QC Review Fail</option>
+                            <option value="testing-in-progress">Testing In Progress</option>
+                            <option value="tested-awaiting-fixes">Tested - Awaiting Fixes</option>
+                            <option value="bis-testing">BIS Testing</option>
+                            <option value="approved-for-live">Approved for Live</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Today's Plan Panel -->
+                <div class="daily-plan-panel" id="todayPanel">
+                    <div class="panel-header">
+                        <span class="panel-date" id="todayDate">Tuesday, Dec 9</span>
+                        <span class="panel-badge plan">Today's Plan</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="todayPlannedHours">Planned Hours</label>
+                        <div class="hours-input-group">
+                            <input type="number" id="todayPlannedHours" min="0" max="24" step="0.5" placeholder="0" value="0">
+                            <span class="hours-suffix">hours</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="todayTasks">Planned Tasks</label>
+                        <textarea id="todayTasks" rows="3" placeholder="What do you plan to work on today? List specific tasks..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="todayGoal">Goal for Today</label>
+                        <select id="todayGoal">
+                            <option value="continue">Continue Testing</option>
+                            <option value="complete">Complete Testing</option>
+                            <option value="review">Review & Document</option>
+                            <option value="fix-retest">Fix Verification & Retest</option>
+                            <option value="handoff">Handoff / Transfer</option>
+                            <option value="blocked">Blocked - Need Help</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Daily Log History -->
+                <div class="daily-log-section">
+                    <div class="daily-log-header" id="toggleDailyLog">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                        </svg>
+                        <span>Daily Log History</span>
+                        <svg class="log-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+                    <div class="daily-log-content collapsed" id="dailyLogContent">
+                        <!-- Log entries will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelDailyPlan">Cancel</button>
+                <button type="button" class="btn-primary" id="saveDailyPlan">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                        <path d="M17 21v-8H7v8M7 3v5h8"/>
+                    </svg>
+                    Save Daily Plan
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Reestimate Modal -->
     <div class="modal-overlay" id="reestimateModal">
         <div class="modal reestimate-modal">
