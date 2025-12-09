@@ -1861,6 +1861,9 @@ async function generateExcelReport() {
     }
     
     // Create Excel workbook using SheetJS
+    const wb = XLSX.utils.book_new();
+    
+    // ===== Sheet 1: Ticket Report =====
     const headers = ['Week', 'Tester Name', 'Ticket ID', 'Summary', 'Status', 'Priority', 'Estimated Hours', 'Actual Hours'];
     
     const rows = tickets.map(ticket => ({
@@ -1874,8 +1877,6 @@ async function generateExcelReport() {
         'Actual Hours': ticket.actualHours
     }));
     
-    // Create workbook and worksheet
-    const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
     
     // Set column widths
@@ -1892,6 +1893,74 @@ async function generateExcelReport() {
     
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'Ticket Report');
+    
+    // ===== Sheet 2: Daily Log History =====
+    const dailyLogHeaders = ['Date', 'Type', 'Ticket ID', 'Summary', 'Tester', 'Hours', 'Notes/Tasks', 'Status/Goal'];
+    const dailyLogRows = [];
+    
+    // Collect daily logs from all tickets in the report range
+    tickets.forEach(ticket => {
+        if (ticket.dailyPlans && ticket.dailyPlans.length > 0) {
+            ticket.dailyPlans.forEach(plan => {
+                const planDate = new Date(plan.date);
+                // Only include logs within the date range
+                if (planDate >= startDate && planDate <= endDate) {
+                    dailyLogRows.push({
+                        'Date': planDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+                        'Type': plan.type === 'actual' ? 'Actual' : 'Plan',
+                        'Ticket ID': ticket.ticketId,
+                        'Summary': ticket.name,
+                        'Tester': ticket.tester,
+                        'Hours': plan.hours || plan.plannedHours || 0,
+                        'Notes/Tasks': plan.notes || plan.tasks || '',
+                        'Status/Goal': plan.type === 'actual' ? formatStatus(plan.status || '') : (plan.goal || '')
+                    });
+                }
+            });
+        }
+    });
+    
+    // Sort by date descending
+    dailyLogRows.sort((a, b) => new Date(b['Date']) - new Date(a['Date']));
+    
+    if (dailyLogRows.length > 0) {
+        const wsDailyLog = XLSX.utils.json_to_sheet(dailyLogRows, { header: dailyLogHeaders });
+        wsDailyLog['!cols'] = [
+            { wch: 22 },  // Date
+            { wch: 8 },   // Type
+            { wch: 15 },  // Ticket ID
+            { wch: 35 },  // Summary
+            { wch: 22 },  // Tester
+            { wch: 8 },   // Hours
+            { wch: 50 },  // Notes/Tasks
+            { wch: 20 }   // Status/Goal
+        ];
+        XLSX.utils.book_append_sheet(wb, wsDailyLog, 'Daily Log History');
+    }
+    
+    // ===== Sheet 3: Report Summary =====
+    const totalEstimated = tickets.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+    const totalActual = tickets.reduce((sum, t) => sum + (t.actualHours || 0), 0);
+    const totalDailyLogHours = dailyLogRows.filter(r => r.Type === 'Actual').reduce((sum, r) => sum + (r.Hours || 0), 0);
+    
+    const summaryData = [
+        { 'Metric': 'Report Generated', 'Value': new Date().toLocaleString() },
+        { 'Metric': 'Date Range', 'Value': `${formatDate(startDate)} - ${formatDate(endDate)}` },
+        { 'Metric': '', 'Value': '' },
+        { 'Metric': 'Total Tickets', 'Value': tickets.length },
+        { 'Metric': 'Total Estimated Hours', 'Value': totalEstimated },
+        { 'Metric': 'Total Actual Hours', 'Value': totalActual },
+        { 'Metric': '', 'Value': '' },
+        { 'Metric': 'Daily Log Entries', 'Value': dailyLogRows.length },
+        { 'Metric': 'Daily Actual Hours Logged', 'Value': totalDailyLogHours },
+        { 'Metric': 'Daily Plan Entries', 'Value': dailyLogRows.filter(r => r.Type === 'Plan').length }
+    ];
+    
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    wsSummary['!cols'] = [
+        { wch: 25 }, { wch: 30 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Report Summary');
     
     // Generate filename
     const number = document.getElementById('reportNumber').value;
@@ -1917,7 +1986,7 @@ async function generateExcelReport() {
         document.body.removeChild(a);
     }, 100);
     
-    showToast(`Excel report generated with ${tickets.length} tickets!`, 'success');
+    showToast(`Excel report generated with ${tickets.length} tickets and ${dailyLogRows.length} daily log entries!`, 'success');
     closeReportModal();
 }
 
@@ -2281,7 +2350,67 @@ function exportAllDataToExcel() {
     ];
     XLSX.utils.book_append_sheet(wb, wsNextCapacity, 'Next Week Capacity');
     
-    // ===== Sheet 5: Summary =====
+    // ===== Sheet 5: Daily Log History =====
+    const dailyLogHeaders = ['Date', 'Type', 'Ticket ID', 'Summary', 'Tester', 'Hours', 'Notes/Tasks', 'Status/Goal'];
+    const dailyLogRows = [];
+    
+    // Collect daily logs from current week tickets
+    state.currentWeekTickets.forEach(ticket => {
+        if (ticket.dailyPlans && ticket.dailyPlans.length > 0) {
+            ticket.dailyPlans.forEach(plan => {
+                const planDate = new Date(plan.date);
+                dailyLogRows.push({
+                    'Date': planDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+                    'Type': plan.type === 'actual' ? 'Actual' : 'Plan',
+                    'Ticket ID': ticket.ticketId,
+                    'Summary': ticket.name,
+                    'Tester': ticket.tester,
+                    'Hours': plan.hours || plan.plannedHours || 0,
+                    'Notes/Tasks': plan.notes || plan.tasks || '',
+                    'Status/Goal': plan.type === 'actual' ? formatStatus(plan.status || '') : (plan.goal || '')
+                });
+            });
+        }
+    });
+    
+    // Collect daily logs from next week tickets
+    state.nextWeekPlanTickets.forEach(ticket => {
+        if (ticket.dailyPlans && ticket.dailyPlans.length > 0) {
+            ticket.dailyPlans.forEach(plan => {
+                const planDate = new Date(plan.date);
+                dailyLogRows.push({
+                    'Date': planDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+                    'Type': plan.type === 'actual' ? 'Actual' : 'Plan',
+                    'Ticket ID': ticket.ticketId,
+                    'Summary': ticket.name,
+                    'Tester': ticket.tester,
+                    'Hours': plan.hours || plan.plannedHours || 0,
+                    'Notes/Tasks': plan.notes || plan.tasks || '',
+                    'Status/Goal': plan.type === 'actual' ? formatStatus(plan.status || '') : (plan.goal || '')
+                });
+            });
+        }
+    });
+    
+    // Sort by date descending
+    dailyLogRows.sort((a, b) => new Date(b['Date']) - new Date(a['Date']));
+    
+    if (dailyLogRows.length > 0) {
+        const wsDailyLog = XLSX.utils.json_to_sheet(dailyLogRows, { header: dailyLogHeaders });
+        wsDailyLog['!cols'] = [
+            { wch: 22 },  // Date
+            { wch: 8 },   // Type
+            { wch: 15 },  // Ticket ID
+            { wch: 35 },  // Summary
+            { wch: 22 },  // Tester
+            { wch: 8 },   // Hours
+            { wch: 50 },  // Notes/Tasks
+            { wch: 20 }   // Status/Goal
+        ];
+        XLSX.utils.book_append_sheet(wb, wsDailyLog, 'Daily Log History');
+    }
+    
+    // ===== Sheet 6: Summary =====
     const currentStats = calculateStats(state.currentWeekTickets);
     const nextStats = calculateStats(state.nextWeekPlanTickets);
     
@@ -2295,7 +2424,9 @@ function exportAllDataToExcel() {
         { 'Metric': 'Remaining Hours', 'Current Week': currentStats.remainingHours, 'Next Week': nextStats.remainingHours },
         { 'Metric': '', 'Current Week': '', 'Next Week': '' },
         { 'Metric': 'Team Total Capacity', 'Current Week': TESTERS.reduce((sum, t) => sum + (state.currentWeekCapacity[t]?.totalHours ?? 40), 0), 'Next Week': TESTERS.reduce((sum, t) => sum + (state.nextWeekCapacity[t]?.totalHours ?? 40), 0) },
-        { 'Metric': 'Team Unplanned Hours', 'Current Week': TESTERS.reduce((sum, t) => sum + (state.currentWeekCapacity[t]?.totalHours ?? 40), 0) - currentStats.totalHours, 'Next Week': TESTERS.reduce((sum, t) => sum + (state.nextWeekCapacity[t]?.totalHours ?? 40), 0) - nextStats.totalHours }
+        { 'Metric': 'Team Unplanned Hours', 'Current Week': TESTERS.reduce((sum, t) => sum + (state.currentWeekCapacity[t]?.totalHours ?? 40), 0) - currentStats.totalHours, 'Next Week': TESTERS.reduce((sum, t) => sum + (state.nextWeekCapacity[t]?.totalHours ?? 40), 0) - nextStats.totalHours },
+        { 'Metric': '', 'Current Week': '', 'Next Week': '' },
+        { 'Metric': 'Daily Log Entries', 'Current Week': dailyLogRows.length, 'Next Week': '' }
     ];
     
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
