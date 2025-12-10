@@ -47,7 +47,7 @@ const STATUS_CATEGORIES = {
     },
     'dev': {
         name: 'Dev',
-        statuses: ['approved-for-live', 'in-progress', 'qc-review-fail', 'tested-awaiting-fixes', 'nil']
+        statuses: ['approved-for-live', 'moved-to-live', 'in-progress', 'qc-review-fail', 'tested-awaiting-fixes', 'nil']
     },
     'closed': {
         name: 'Closed',
@@ -658,7 +658,7 @@ function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
         const priorityOrder = ['critical', 'high', 'medium', 'low'];
         sortedKeys.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
     } else if (groupBy === 'status') {
-        const statusOrder = ['in-progress', 'qc-testing', 'qc-testing-in-progress', 'testing-in-progress', 'bis-testing', 'qc-testing-hold', 'qc-review-fail', 'tested-awaiting-fixes', 'approved-for-live', 'closed', 'nil'];
+        const statusOrder = ['in-progress', 'qc-testing', 'qc-testing-in-progress', 'testing-in-progress', 'bis-testing', 'qc-testing-hold', 'qc-review-fail', 'tested-awaiting-fixes', 'approved-for-live', 'moved-to-live', 'closed', 'nil'];
         sortedKeys.sort((a, b) => statusOrder.indexOf(a) - statusOrder.indexOf(b));
     } else if (groupBy === 'category') {
         const categoryOrder = ['qa-india', 'bis-qa', 'dev', 'closed'];
@@ -725,6 +725,7 @@ function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '')
             { key: 'tested-awaiting-fixes', name: 'Tested - Awaiting Fixes' },
             { key: 'bis-testing', name: 'BIS Testing' },
             { key: 'approved-for-live', name: 'Approved for Live' },
+            { key: 'moved-to-live', name: 'Moved to Live' },
             { key: 'closed', name: 'Closed' }
         ];
     } else if (groupBy === 'category') {
