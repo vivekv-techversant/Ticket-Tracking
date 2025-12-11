@@ -2790,14 +2790,21 @@ function processImportData(data) {
     // Check all existing tickets across pool and both weeks for duplicates
     const existingTicketIds = new Set();
     
+    // Helper to normalize ticket ID for comparison
+    const normalizeTicketId = (id) => String(id || '').toLowerCase().trim();
+    
     // Add ticket pool IDs
-    state.ticketPool.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    state.ticketPool.forEach(t => existingTicketIds.add(normalizeTicketId(t.ticketId)));
     
     // Add current week IDs
-    state.currentWeekTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    state.currentWeekTickets.forEach(t => existingTicketIds.add(normalizeTicketId(t.ticketId)));
     
     // Add next week IDs
-    state.nextWeekPlanTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    state.nextWeekPlanTickets.forEach(t => existingTicketIds.add(normalizeTicketId(t.ticketId)));
+    
+    // Debug: log what we found
+    console.log('Existing ticket IDs in system:', [...existingTicketIds]);
+    console.log('Total existing tickets:', existingTicketIds.size);
     
     importState.newTickets = [];
     importState.duplicates = [];
@@ -2856,7 +2863,8 @@ function processImportData(data) {
         }
         
         // Check for duplicates
-        if (existingTicketIds.has(ticketId.toLowerCase())) {
+        const normalizedImportId = String(ticketId).toLowerCase().trim();
+        if (existingTicketIds.has(normalizedImportId)) {
             importState.duplicates.push({ ticketId, name });
             return;
         }
