@@ -160,12 +160,16 @@ function saveToStorage() {
     updates[`/tickets/${nextWeekKey}`] = state.nextWeekPlanTickets;
     updates[`/capacity/${currentCapacityKey}`] = state.currentWeekCapacity;
     updates[`/capacity/${nextCapacityKey}`] = state.nextWeekCapacity;
-    updates[`/ticketPool`] = state.ticketPool;
+    updates[`/ticketPool`] = state.ticketPool.length > 0 ? state.ticketPool : null;
     
-    database.ref().update(updates).catch(error => {
-        console.error('Error saving to Firebase:', error);
-        showToast('Error saving data. Please try again.', 'error');
-    });
+    database.ref().update(updates)
+        .then(() => {
+            console.log('Data saved successfully. Pool has', state.ticketPool.length, 'tickets');
+        })
+        .catch(error => {
+            console.error('Error saving to Firebase:', error);
+            showToast('Error saving data. Please try again.', 'error');
+        });
     
     // Save view preferences locally (these are user-specific)
     localStorage.setItem('viewPreferences', JSON.stringify({
@@ -207,7 +211,15 @@ function loadFromStorage() {
         state.nextWeekPlanTickets = nextSnap.val() || [];
         state.currentWeekCapacity = currentCapSnap.val() || {};
         state.nextWeekCapacity = nextCapSnap.val() || {};
-        state.ticketPool = poolSnap.val() || [];
+        
+        // Firebase returns object with numeric keys for arrays, convert back to array
+        const poolData = poolSnap.val();
+        if (poolData && typeof poolData === 'object' && !Array.isArray(poolData)) {
+            state.ticketPool = Object.values(poolData);
+        } else {
+            state.ticketPool = poolData || [];
+        }
+        console.log('Loaded ticket pool with', state.ticketPool.length, 'tickets');
         
         // Initialize capacity for all testers if not present
         TESTERS.forEach(tester => {
@@ -2988,6 +3000,7 @@ function confirmImport() {
     const skipped = importState.duplicates.length + importState.invalidRows.length;
     
     // Save and render
+    console.log('Saving ticket pool with', state.ticketPool.length, 'tickets');
     saveToStorage();
     renderTicketPool();
     
