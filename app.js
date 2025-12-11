@@ -217,7 +217,6 @@ function loadFromStorage() {
     }
     
     // Load data from Firebase
-    console.log('Starting Firebase Promise.all...');
     Promise.all([
         database.ref(`/tickets/${currentWeekKey}`).once('value'),
         database.ref(`/tickets/${nextWeekKey}`).once('value'),
@@ -225,7 +224,6 @@ function loadFromStorage() {
         database.ref(`/capacity/${nextCapacityKey}`).once('value'),
         database.ref(`/ticketPool`).once('value')
     ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap, poolSnap]) => {
-        console.log('=== LOADING DATA FROM FIREBASE - SUCCESS ===');
         state.currentWeekTickets = currentSnap.val() || [];
         state.nextWeekPlanTickets = nextSnap.val() || [];
         state.currentWeekCapacity = currentCapSnap.val() || {};
@@ -259,19 +257,10 @@ function loadFromStorage() {
         });
         
         // Re-render after loading
-        console.log('About to render...');
-        try {
-            updateWeekDates();
-            console.log('updateWeekDates done');
-            updateViewButtons();
-            console.log('updateViewButtons done');
-            renderTickets();
-            console.log('renderTickets done');
-            renderTicketPool();
-            console.log('renderTicketPool done');
-        } catch (renderError) {
-            console.error('Error during rendering:', renderError);
-        }
+        updateWeekDates();
+        updateViewButtons();
+        renderTickets();
+        renderTicketPool();
     }).catch(error => {
         console.error('Error loading from Firebase:', error);
         showToast('Error loading data. Please refresh the page.', 'error');
@@ -335,7 +324,6 @@ function setupRealtimeListeners() {
         } else {
             state.ticketPool = [];
         }
-        console.log('Realtime: ticketPool updated with', state.ticketPool.length, 'tickets');
         renderTicketPool();
     });
     
@@ -3113,7 +3101,6 @@ let poolState = {
 
 function initializeTicketPool() {
     const toggleBtn = document.getElementById('togglePoolBtn');
-    const saveBtn = document.getElementById('savePoolBtn');
     const searchInput = document.getElementById('poolSearchInput');
     const selectAllCheckbox = document.getElementById('selectAllPool');
     const assignCurrentBtn = document.getElementById('assignToCurrentWeek');
@@ -3122,10 +3109,6 @@ function initializeTicketPool() {
     
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleTicketPool);
-    }
-    
-    if (saveBtn) {
-        saveBtn.addEventListener('click', saveTicketPool);
     }
     
     if (searchInput) {
@@ -3159,30 +3142,10 @@ function toggleTicketPool() {
     section.classList.toggle('collapsed');
 }
 
-function saveTicketPool() {
-    console.log('Manual save triggered. Pool has', state.ticketPool.length, 'tickets');
-    
-    database.ref('/ticketPool').set(state.ticketPool.length > 0 ? state.ticketPool : null)
-        .then(() => {
-            console.log('Ticket pool saved manually');
-            showToast(`Saved ${state.ticketPool.length} tickets to pool`, 'success');
-        })
-        .catch(err => {
-            console.error('Error saving ticket pool:', err);
-            showToast('Error saving pool. Please try again.', 'error');
-        });
-}
-
 function renderTicketPool() {
-    console.log('=== renderTicketPool() called ===');
-    console.log('state.ticketPool:', state.ticketPool);
-    console.log('state.ticketPool.length:', state.ticketPool ? state.ticketPool.length : 'undefined');
-    
     const container = document.getElementById('poolTickets');
     const countEl = document.getElementById('poolTicketCount');
     const selectAllCheckbox = document.getElementById('selectAllPool');
-    
-    console.log('DOM elements found:', { container: !!container, countEl: !!countEl, selectAllCheckbox: !!selectAllCheckbox });
     
     // Filter tickets based on search
     let filteredTickets = state.ticketPool;
