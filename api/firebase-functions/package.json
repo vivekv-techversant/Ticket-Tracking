@@ -1,0 +1,16 @@
+{
+  "name": "ticket-tracking-api",
+  "version": "1.0.0",
+  "description": "Firebase Cloud Functions API for Ticket Tracking",
+  "main": "index.js",
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.11.0",
+    "firebase-functions": "^4.5.0",
+    "xlsx": "^0.18.5",
+    "cors": "^2.8.5"
+  }
+}
+
