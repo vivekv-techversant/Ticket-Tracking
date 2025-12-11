@@ -2526,6 +2526,463 @@ function exportAllDataToExcel() {
 document.addEventListener('DOMContentLoaded', initializeExport);
 
 // =====================
+// Import from Excel Functionality
+// =====================
+
+let importState = {
+    file: null,
+    parsedData: [],
+    newTickets: [],
+    duplicates: [],
+    invalidRows: []
+};
+
+function initializeImport() {
+    const openBtn = document.getElementById('openImportModal');
+    const closeBtn = document.getElementById('closeImportModal');
+    const cancelBtn = document.getElementById('cancelImport');
+    const confirmBtn = document.getElementById('confirmImport');
+    const fileInput = document.getElementById('importFileInput');
+    const uploadArea = document.getElementById('fileUploadArea');
+    const removeFileBtn = document.getElementById('removeFileBtn');
+    const templateBtn = document.getElementById('downloadTemplateBtn');
+    const modal = document.getElementById('importModal');
+    
+    if (openBtn) openBtn.addEventListener('click', openImportModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeImportModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeImportModal);
+    if (confirmBtn) confirmBtn.addEventListener('click', confirmImport);
+    if (removeFileBtn) removeFileBtn.addEventListener('click', removeSelectedFile);
+    if (templateBtn) templateBtn.addEventListener('click', downloadImportTemplate);
+    
+    // File input change
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+    
+    // Click to upload
+    if (uploadArea) {
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target.id !== 'removeFileBtn' && !e.target.closest('#removeFileBtn')) {
+                fileInput.click();
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+    }
+    
+    // Close on overlay click
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target.id === 'importModal') {
+                closeImportModal();
+            }
+        });
+    }
+}
+
+function downloadImportTemplate() {
+    // Create workbook with template
+    const wb = XLSX.utils.book_new();
+    
+    // Template headers
+    const headers = ['Ticket ID', 'Ticket Name', 'Tester Name', 'Estimated Hours', 'Actual Hours', 'Status', 'Priority'];
+    
+    // Sample data rows to show format
+    const sampleData = [
+        {
+            'Ticket ID': 'TICK-001',
+            'Ticket Name': 'Sample ticket description',
+            'Tester Name': TESTERS[0],
+            'Estimated Hours': 4,
+            'Actual Hours': 0,
+            'Status': 'Nil',
+            'Priority': 'medium'
+        },
+        {
+            'Ticket ID': 'TICK-002',
+            'Ticket Name': 'Another sample ticket',
+            'Tester Name': TESTERS[1] || TESTERS[0],
+            'Estimated Hours': 8,
+            'Actual Hours': 2,
+            'Status': 'In Progress',
+            'Priority': 'high'
+        }
+    ];
+    
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+    
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 15 },  // Ticket ID
+        { wch: 40 },  // Ticket Name
+        { wch: 25 },  // Tester Name
+        { wch: 15 },  // Estimated Hours
+        { wch: 12 },  // Actual Hours
+        { wch: 20 },  // Status
+        { wch: 12 }   // Priority
+    ];
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Tickets');
+    
+    // Add a reference sheet with valid values
+    const refData = [
+        { 'Field': 'Tester Name (Valid Values)', 'Values': TESTERS.join(', ') },
+        { 'Field': '', 'Values': '' },
+        { 'Field': 'Status (Valid Values)', 'Values': 'Nil, In Progress, Start Code Review, QC Testing, QC Testing In Progress, QC Testing Hold, QC Review Fail, Code Review Failed, Testing In Progress, Tested - Awaiting Fixes, Hold/Pending, BIS Testing, Approved for Live, Moved to Live, Closed' },
+        { 'Field': '', 'Values': '' },
+        { 'Field': 'Priority (Valid Values)', 'Values': 'low, medium, high, critical' }
+    ];
+    
+    const wsRef = XLSX.utils.json_to_sheet(refData);
+    wsRef['!cols'] = [
+        { wch: 30 },
+        { wch: 100 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsRef, 'Reference');
+    
+    // Generate and download
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'PlanQC_Import_Template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }, 100);
+    
+    showToast('Template downloaded!', 'success');
+}
+
+function openImportModal() {
+    resetImportState();
+    document.getElementById('importModal').classList.add('active');
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').classList.remove('active');
+    resetImportState();
+}
+
+function resetImportState() {
+    importState = {
+        file: null,
+        parsedData: [],
+        newTickets: [],
+        duplicates: [],
+        invalidRows: []
+    };
+    
+    document.getElementById('importFileInput').value = '';
+    document.getElementById('fileUploadArea').querySelector('.file-upload-content').style.display = '';
+    document.getElementById('fileSelectedInfo').style.display = 'none';
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('confirmImport').disabled = true;
+}
+
+function removeSelectedFile() {
+    resetImportState();
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleFile(file);
+    }
+}
+
+function handleFile(file) {
+    const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv'
+    ];
+    
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
+        showToast('Please select a valid Excel file (.xlsx, .xls, .csv)', 'error');
+        return;
+    }
+    
+    importState.file = file;
+    
+    // Update UI
+    document.getElementById('fileUploadArea').querySelector('.file-upload-content').style.display = 'none';
+    document.getElementById('fileSelectedInfo').style.display = 'flex';
+    document.getElementById('selectedFileName').textContent = file.name;
+    
+    // Parse the file
+    parseExcelFile(file);
+}
+
+function parseExcelFile(file) {
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Get the first sheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert to JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+            
+            if (jsonData.length === 0) {
+                showToast('The Excel file appears to be empty', 'error');
+                return;
+            }
+            
+            importState.parsedData = jsonData;
+            processImportData(jsonData);
+            
+        } catch (error) {
+            console.error('Error parsing Excel file:', error);
+            showToast('Error parsing Excel file. Please check the file format.', 'error');
+        }
+    };
+    
+    reader.onerror = function() {
+        showToast('Error reading file', 'error');
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function processImportData(data) {
+    const targetWeek = document.getElementById('importWeek').value;
+    const existingTickets = targetWeek === 'current' ? state.currentWeekTickets : state.nextWeekPlanTickets;
+    const existingTicketIds = new Set(existingTickets.map(t => t.ticketId.toLowerCase().trim()));
+    
+    // Also check the other week for duplicates
+    const otherWeekTickets = targetWeek === 'current' ? state.nextWeekPlanTickets : state.currentWeekTickets;
+    otherWeekTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    
+    importState.newTickets = [];
+    importState.duplicates = [];
+    importState.invalidRows = [];
+    
+    // Column name mappings (case-insensitive)
+    const columnMappings = {
+        ticketId: ['ticket id', 'ticketid', 'ticket_id', 'id'],
+        name: ['ticket name', 'ticketname', 'name', 'summary', 'description', 'title'],
+        tester: ['tester name', 'testername', 'tester', 'assigned to', 'assignee'],
+        estimatedHours: ['estimated hours', 'estimatedhours', 'estimated_hours', 'estimate', 'hours', 'est hours', 'est. hours'],
+        actualHours: ['actual hours', 'actualhours', 'actual_hours', 'actual', 'worked hours'],
+        status: ['status'],
+        priority: ['priority']
+    };
+    
+    // Get actual column names from data
+    const sampleRow = data[0];
+    const actualColumns = Object.keys(sampleRow);
+    
+    // Find matching columns
+    const columnMap = {};
+    for (const [field, possibleNames] of Object.entries(columnMappings)) {
+        for (const colName of actualColumns) {
+            if (possibleNames.includes(colName.toLowerCase().trim())) {
+                columnMap[field] = colName;
+                break;
+            }
+        }
+    }
+    
+    // Check required columns
+    const requiredFields = ['ticketId', 'name', 'tester', 'estimatedHours'];
+    const missingFields = requiredFields.filter(f => !columnMap[f]);
+    
+    if (missingFields.length > 0) {
+        showToast(`Missing required columns: ${missingFields.join(', ')}`, 'error');
+        return;
+    }
+    
+    // Process each row
+    data.forEach((row, index) => {
+        const ticketId = String(row[columnMap.ticketId] || '').trim();
+        const name = String(row[columnMap.name] || '').trim();
+        const tester = String(row[columnMap.tester] || '').trim();
+        const estimatedHours = parseFloat(row[columnMap.estimatedHours]) || 0;
+        const actualHours = columnMap.actualHours ? (parseFloat(row[columnMap.actualHours]) || 0) : 0;
+        const status = columnMap.status ? normalizeStatus(String(row[columnMap.status] || '').trim()) : 'nil';
+        const priority = columnMap.priority ? normalizePriority(String(row[columnMap.priority] || '').trim()) : 'medium';
+        
+        // Validate required fields
+        if (!ticketId || !name || !tester || estimatedHours <= 0) {
+            importState.invalidRows.push({ row: index + 2, reason: 'Missing required data or invalid hours' });
+            return;
+        }
+        
+        // Check for duplicates
+        if (existingTicketIds.has(ticketId.toLowerCase())) {
+            importState.duplicates.push({ ticketId, name });
+            return;
+        }
+        
+        // Validate tester name
+        if (!TESTERS.includes(tester)) {
+            importState.invalidRows.push({ row: index + 2, reason: `Unknown tester: ${tester}` });
+            return;
+        }
+        
+        // Add to new tickets
+        importState.newTickets.push({
+            ticketId,
+            name,
+            tester,
+            estimatedHours,
+            actualHours,
+            status,
+            priority
+        });
+        
+        // Add to existing set to catch duplicates within the import file
+        existingTicketIds.add(ticketId.toLowerCase());
+    });
+    
+    // Update preview
+    updateImportPreview();
+}
+
+function normalizeStatus(status) {
+    const statusLower = status.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-');
+    
+    const validStatuses = [
+        'nil', 'in-progress', 'start-code-review', 'qc-testing', 'qc-testing-in-progress',
+        'qc-testing-hold', 'qc-review-fail', 'code-review-failed', 'testing-in-progress',
+        'tested-awaiting-fixes', 'hold-pending', 'bis-testing', 'approved-for-live',
+        'moved-to-live', 'closed'
+    ];
+    
+    // Try exact match
+    if (validStatuses.includes(statusLower)) {
+        return statusLower;
+    }
+    
+    // Try partial matches
+    const statusMap = {
+        'progress': 'in-progress',
+        'testing': 'qc-testing',
+        'approved': 'approved-for-live',
+        'live': 'moved-to-live',
+        'closed': 'closed',
+        'done': 'closed',
+        'complete': 'closed',
+        'hold': 'hold-pending',
+        'pending': 'hold-pending',
+        'fail': 'qc-review-fail',
+        'code review': 'start-code-review'
+    };
+    
+    for (const [key, value] of Object.entries(statusMap)) {
+        if (statusLower.includes(key)) {
+            return value;
+        }
+    }
+    
+    return 'nil';
+}
+
+function normalizePriority(priority) {
+    const priorityLower = priority.toLowerCase().trim();
+    
+    const validPriorities = ['low', 'medium', 'high', 'critical'];
+    
+    if (validPriorities.includes(priorityLower)) {
+        return priorityLower;
+    }
+    
+    // Map common variations
+    if (priorityLower === 'med' || priorityLower === 'normal') return 'medium';
+    if (priorityLower === 'urgent' || priorityLower === 'blocker') return 'critical';
+    
+    return 'medium';
+}
+
+function updateImportPreview() {
+    const preview = document.getElementById('importPreview');
+    const confirmBtn = document.getElementById('confirmImport');
+    
+    document.getElementById('previewTotalRows').textContent = importState.parsedData.length;
+    document.getElementById('previewNewTickets').textContent = importState.newTickets.length;
+    document.getElementById('previewDuplicates').textContent = importState.duplicates.length;
+    document.getElementById('previewInvalid').textContent = importState.invalidRows.length;
+    
+    preview.style.display = 'block';
+    confirmBtn.disabled = importState.newTickets.length === 0;
+}
+
+function confirmImport() {
+    if (importState.newTickets.length === 0) {
+        showToast('No valid tickets to import', 'error');
+        return;
+    }
+    
+    const targetWeek = document.getElementById('importWeek').value;
+    
+    // Add tickets
+    importState.newTickets.forEach(ticketData => {
+        addTicket(ticketData, targetWeek);
+    });
+    
+    const count = importState.newTickets.length;
+    const skipped = importState.duplicates.length + importState.invalidRows.length;
+    
+    closeImportModal();
+    
+    let message = `Successfully imported ${count} ticket${count !== 1 ? 's' : ''}`;
+    if (skipped > 0) {
+        message += ` (${skipped} skipped)`;
+    }
+    showToast(message, 'success');
+}
+
+// Re-process when week selection changes
+document.addEventListener('DOMContentLoaded', () => {
+    const importWeekSelect = document.getElementById('importWeek');
+    if (importWeekSelect) {
+        importWeekSelect.addEventListener('change', () => {
+            if (importState.parsedData.length > 0) {
+                processImportData(importState.parsedData);
+            }
+        });
+    }
+});
+
+// Initialize import when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeImport);
+
+// =====================
 // Daily Planning Functionality
 // =====================
 

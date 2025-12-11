@@ -85,6 +85,14 @@
                 </button>
             </div>
             
+            <!-- Import Button -->
+            <button class="data-btn import-btn" id="openImportModal" title="Import Tickets from Excel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+                Import Excel
+            </button>
+            
             <!-- Export Button -->
             <button class="data-btn" id="exportDataBtn" title="Export All Data to Excel">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -524,6 +532,112 @@
                         Download Excel
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Excel Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal import-modal">
+            <div class="modal-header">
+                <h2>Import Tickets from Excel</h2>
+                <button class="close-btn" id="closeImportModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="import-info">
+                <div class="import-info-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4M12 8h.01"/>
+                    </svg>
+                </div>
+                <div class="import-info-text">
+                    <p><strong>Required columns:</strong></p>
+                    <ul>
+                        <li><code>Ticket ID</code> - Unique ticket identifier</li>
+                        <li><code>Ticket Name</code> or <code>Summary</code> - Ticket description</li>
+                        <li><code>Tester Name</code> or <code>Tester</code> - Assigned tester</li>
+                        <li><code>Estimated Hours</code> - Hours estimate</li>
+                    </ul>
+                    <p><strong>Optional columns:</strong></p>
+                    <ul>
+                        <li><code>Status</code> - Ticket status (defaults to "Nil")</li>
+                        <li><code>Priority</code> - low/medium/high/critical (defaults to "medium")</li>
+                        <li><code>Actual Hours</code> - Hours worked (defaults to 0)</li>
+                    </ul>
+                    <p class="import-note">⚠️ Duplicate Ticket IDs will be skipped</p>
+                    <button type="button" class="download-template-btn" id="downloadTemplateBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Template
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="importWeek">Import to Week</label>
+                <select id="importWeek">
+                    <option value="current">Current Week</option>
+                    <option value="nextWeekPlan">Next Week</option>
+                </select>
+            </div>
+            <div class="file-upload-area" id="fileUploadArea">
+                <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" hidden>
+                <div class="file-upload-content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    <p>Click to select or drag & drop Excel file</p>
+                    <span class="file-types">.xlsx, .xls, .csv</span>
+                </div>
+                <div class="file-selected" id="fileSelectedInfo" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                    <span class="file-name" id="selectedFileName"></span>
+                    <button class="remove-file-btn" id="removeFileBtn" title="Remove file">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="import-preview" id="importPreview" style="display: none;">
+                <div class="import-preview-header">
+                    <span class="import-preview-icon">📋</span>
+                    <span>Preview</span>
+                </div>
+                <div class="import-preview-stats">
+                    <div class="preview-stat">
+                        <span class="stat-label">Total rows:</span>
+                        <span class="stat-value" id="previewTotalRows">0</span>
+                    </div>
+                    <div class="preview-stat">
+                        <span class="stat-label">New tickets:</span>
+                        <span class="stat-value success" id="previewNewTickets">0</span>
+                    </div>
+                    <div class="preview-stat">
+                        <span class="stat-label">Duplicates (skipped):</span>
+                        <span class="stat-value warning" id="previewDuplicates">0</span>
+                    </div>
+                    <div class="preview-stat">
+                        <span class="stat-label">Invalid rows:</span>
+                        <span class="stat-value error" id="previewInvalid">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelImport">Cancel</button>
+                <button type="button" class="btn-primary" id="confirmImport" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    Import Tickets
+                </button>
             </div>
         </div>
     </div>

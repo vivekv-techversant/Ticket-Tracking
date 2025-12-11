@@ -2084,6 +2084,259 @@ form {
     height: 18px;
 }
 
+/* Import Modal */
+.import-modal {
+    max-width: 560px;
+}
+
+.import-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+}
+
+.import-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+}
+
+.import-info {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(20, 184, 166, 0.1);
+    border: 1px solid rgba(20, 184, 166, 0.3);
+    border-radius: var(--radius-md);
+    margin-bottom: 1.5rem;
+}
+
+.import-info-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    color: var(--accent-cyan);
+}
+
+.import-info-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.import-info-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.import-info-text p {
+    margin-bottom: 0.5rem;
+}
+
+.import-info-text ul {
+    margin: 0.25rem 0 0.75rem 1.25rem;
+    padding: 0;
+}
+
+.import-info-text li {
+    margin-bottom: 0.25rem;
+}
+
+.import-info-text code {
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent-cyan);
+}
+
+.import-note {
+    color: var(--accent-orange) !important;
+    font-weight: 500;
+    margin-top: 0.5rem !important;
+}
+
+.download-template-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-cyan);
+    border-radius: var(--radius-sm);
+    color: var(--accent-cyan);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.download-template-btn:hover {
+    background: rgba(20, 184, 166, 0.15);
+}
+
+.download-template-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.file-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-bottom: 1rem;
+}
+
+.file-upload-area:hover,
+.file-upload-area.dragover {
+    border-color: var(--accent-cyan);
+    background: rgba(20, 184, 166, 0.05);
+}
+
+.file-upload-content svg {
+    width: 48px;
+    height: 48px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.file-upload-content p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.file-types {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.file-selected {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(45, 212, 191, 0.1);
+    border-radius: var(--radius-md);
+}
+
+.file-selected svg {
+    width: 24px;
+    height: 24px;
+    color: var(--accent-green);
+    flex-shrink: 0;
+}
+
+.file-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.remove-file-btn {
+    background: transparent;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+}
+
+.remove-file-btn:hover {
+    color: var(--accent-red);
+}
+
+.remove-file-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.import-preview {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.import-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+
+.import-preview-icon {
+    font-size: 1.1rem;
+}
+
+.import-preview-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.preview-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.stat-value.success {
+    color: var(--accent-green);
+}
+
+.stat-value.warning {
+    color: var(--accent-orange);
+}
+
+.stat-value.error {
+    color: var(--accent-red);
+}
+
+.import-modal .form-actions {
+    margin-top: 1.5rem;
+}
+
+.import-modal .btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.import-modal .btn-primary svg {
+    width: 18px;
+    height: 18px;
+}
+
+.import-modal .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Reestimate Modal */
 .reestimate-modal {
     text-align: center;
