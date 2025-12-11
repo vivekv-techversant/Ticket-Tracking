@@ -2190,7 +2190,10 @@ async function handleLogout() {
 }
 
 // Auth state listener
+let authInitialized = false;
+
 auth.onAuthStateChanged((user) => {
+    console.log('Auth state changed:', user ? 'User logged in' : 'No user');
     currentUser = user;
     
     if (user) {
@@ -2198,24 +2201,48 @@ auth.onAuthStateChanged((user) => {
         updateUserDisplay(user);
         showAppPage();
         
-        // Initialize the app
-        state.currentWeekStart = getCurrentViewWeek();
-        
-        const viewPreferences = localStorage.getItem('viewPreferences');
-        if (viewPreferences) {
-            const prefs = JSON.parse(viewPreferences);
-            if (prefs.viewMode) state.viewMode = prefs.viewMode;
-            if (prefs.groupBy) state.groupBy = prefs.groupBy;
+        // Only initialize app data once, or when explicitly needed
+        if (!authInitialized || !state.currentWeekStart) {
+            console.log('Initializing app for user:', user.email);
+            authInitialized = true;
+            
+            // Initialize the app
+            state.currentWeekStart = getCurrentViewWeek();
+            
+            const viewPreferences = localStorage.getItem('viewPreferences');
+            if (viewPreferences) {
+                const prefs = JSON.parse(viewPreferences);
+                if (prefs.viewMode) state.viewMode = prefs.viewMode;
+                if (prefs.groupBy) state.groupBy = prefs.groupBy;
+            }
+            
+            updateWeekDates();
+            updateViewButtons();
+            initializeCapacity();
+            loadFromStorage();
+            setupRealtimeListeners();
+        } else {
+            console.log('App already initialized, skipping reload');
         }
-        
-        updateWeekDates();
-        updateViewButtons();
-        initializeCapacity();
-        loadFromStorage();
-        setupRealtimeListeners();
     } else {
-        // User is signed out
-        showLoginPage();
+        // User is signed out - only show login if auth has been initialized
+        // This prevents the flash on page load
+        if (authInitialized) {
+            showLoginPage();
+            
+            // Reset state
+            state.ticketPool = [];
+            state.currentWeekTickets = [];
+            state.nextWeekPlanTickets = [];
+            authInitialized = false;
+        } else {
+            // First load - wait a moment to see if user session is restored
+            setTimeout(() => {
+                if (!currentUser) {
+                    showLoginPage();
+                }
+            }, 500);
+        }
         
         // Reset login form
         const loginBtn = document.getElementById('loginBtn');
