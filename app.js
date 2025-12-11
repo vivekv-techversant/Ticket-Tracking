@@ -75,6 +75,7 @@ const state = {
     currentWeekStart: null, // Will be initialized in DOMContentLoaded
     currentWeekTickets: [],
     nextWeekPlanTickets: [],
+    ticketPool: [], // Pool of imported tickets not yet assigned to a week
     editingTicket: null,
     editingWeek: null,
     currentWeekCapacity: {}, // { testerName: { totalHours: number } }
@@ -159,6 +160,7 @@ function saveToStorage() {
     updates[`/tickets/${nextWeekKey}`] = state.nextWeekPlanTickets;
     updates[`/capacity/${currentCapacityKey}`] = state.currentWeekCapacity;
     updates[`/capacity/${nextCapacityKey}`] = state.nextWeekCapacity;
+    updates[`/ticketPool`] = state.ticketPool;
     
     database.ref().update(updates).catch(error => {
         console.error('Error saving to Firebase:', error);
@@ -198,12 +200,14 @@ function loadFromStorage() {
         database.ref(`/tickets/${currentWeekKey}`).once('value'),
         database.ref(`/tickets/${nextWeekKey}`).once('value'),
         database.ref(`/capacity/${currentCapacityKey}`).once('value'),
-        database.ref(`/capacity/${nextCapacityKey}`).once('value')
-    ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap]) => {
+        database.ref(`/capacity/${nextCapacityKey}`).once('value'),
+        database.ref(`/ticketPool`).once('value')
+    ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap, poolSnap]) => {
         state.currentWeekTickets = currentSnap.val() || [];
         state.nextWeekPlanTickets = nextSnap.val() || [];
         state.currentWeekCapacity = currentCapSnap.val() || {};
         state.nextWeekCapacity = nextCapSnap.val() || {};
+        state.ticketPool = poolSnap.val() || [];
         
         // Initialize capacity for all testers if not present
         TESTERS.forEach(tester => {
@@ -219,6 +223,7 @@ function loadFromStorage() {
         updateWeekDates();
         updateViewButtons();
         renderTickets();
+        renderTicketPool();
     }).catch(error => {
         console.error('Error loading from Firebase:', error);
         showToast('Error loading data. Please refresh the page.', 'error');
@@ -226,8 +231,10 @@ function loadFromStorage() {
         // Initialize with empty data
         state.currentWeekTickets = [];
         state.nextWeekPlanTickets = [];
+        state.ticketPool = [];
         initializeCapacity();
         renderTickets();
+        renderTicketPool();
     });
 }
 
@@ -2780,13 +2787,17 @@ function parseExcelFile(file) {
 }
 
 function processImportData(data) {
-    const targetWeek = document.getElementById('importWeek').value;
-    const existingTickets = targetWeek === 'current' ? state.currentWeekTickets : state.nextWeekPlanTickets;
-    const existingTicketIds = new Set(existingTickets.map(t => t.ticketId.toLowerCase().trim()));
+    // Check all existing tickets across pool and both weeks for duplicates
+    const existingTicketIds = new Set();
     
-    // Also check the other week for duplicates
-    const otherWeekTickets = targetWeek === 'current' ? state.nextWeekPlanTickets : state.currentWeekTickets;
-    otherWeekTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    // Add ticket pool IDs
+    state.ticketPool.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    
+    // Add current week IDs
+    state.currentWeekTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
+    
+    // Add next week IDs
+    state.nextWeekPlanTickets.forEach(t => existingTicketIds.add(t.ticketId.toLowerCase().trim()));
     
     importState.newTickets = [];
     importState.duplicates = [];
@@ -2948,39 +2959,329 @@ function confirmImport() {
         return;
     }
     
-    const targetWeek = document.getElementById('importWeek').value;
-    
-    // Add tickets
+    // Add tickets to the pool instead of directly to weeks
     importState.newTickets.forEach(ticketData => {
-        addTicket(ticketData, targetWeek);
+        const ticket = {
+            id: generateId(),
+            ticketId: ticketData.ticketId,
+            name: ticketData.name,
+            tester: ticketData.tester,
+            estimatedHours: parseFloat(ticketData.estimatedHours),
+            actualHours: parseFloat(ticketData.actualHours) || 0,
+            status: ticketData.status,
+            priority: ticketData.priority,
+            createdAt: new Date().toISOString()
+        };
+        state.ticketPool.push(ticket);
     });
     
     const count = importState.newTickets.length;
     const skipped = importState.duplicates.length + importState.invalidRows.length;
     
+    // Save and render
+    saveToStorage();
+    renderTicketPool();
+    
     closeImportModal();
     
-    let message = `Successfully imported ${count} ticket${count !== 1 ? 's' : ''}`;
+    let message = `Successfully imported ${count} ticket${count !== 1 ? 's' : ''} to pool`;
     if (skipped > 0) {
         message += ` (${skipped} skipped)`;
     }
     showToast(message, 'success');
 }
 
-// Re-process when week selection changes
-document.addEventListener('DOMContentLoaded', () => {
-    const importWeekSelect = document.getElementById('importWeek');
-    if (importWeekSelect) {
-        importWeekSelect.addEventListener('change', () => {
-            if (importState.parsedData.length > 0) {
-                processImportData(importState.parsedData);
-            }
-        });
-    }
-});
 
 // Initialize import when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeImport);
+
+// =====================
+// Ticket Pool Functionality
+// =====================
+
+let poolState = {
+    selectedTickets: new Set(),
+    searchTerm: ''
+};
+
+function initializeTicketPool() {
+    const toggleBtn = document.getElementById('togglePoolBtn');
+    const searchInput = document.getElementById('poolSearchInput');
+    const selectAllCheckbox = document.getElementById('selectAllPool');
+    const assignCurrentBtn = document.getElementById('assignToCurrentWeek');
+    const assignNextBtn = document.getElementById('assignToNextWeek');
+    const deleteBtn = document.getElementById('deleteFromPool');
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleTicketPool);
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            poolState.searchTerm = e.target.value.toLowerCase();
+            renderTicketPool();
+        });
+    }
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            toggleSelectAllPool(e.target.checked);
+        });
+    }
+    
+    if (assignCurrentBtn) {
+        assignCurrentBtn.addEventListener('click', () => assignSelectedToWeek('current'));
+    }
+    
+    if (assignNextBtn) {
+        assignNextBtn.addEventListener('click', () => assignSelectedToWeek('nextWeekPlan'));
+    }
+    
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteSelectedFromPool);
+    }
+}
+
+function toggleTicketPool() {
+    const section = document.getElementById('ticketPoolSection');
+    section.classList.toggle('collapsed');
+}
+
+function renderTicketPool() {
+    const container = document.getElementById('poolTickets');
+    const countEl = document.getElementById('poolTicketCount');
+    const selectAllCheckbox = document.getElementById('selectAllPool');
+    
+    // Filter tickets based on search
+    let filteredTickets = state.ticketPool;
+    if (poolState.searchTerm) {
+        filteredTickets = state.ticketPool.filter(ticket => 
+            ticket.ticketId.toLowerCase().includes(poolState.searchTerm) ||
+            ticket.name.toLowerCase().includes(poolState.searchTerm) ||
+            ticket.tester.toLowerCase().includes(poolState.searchTerm)
+        );
+    }
+    
+    // Update count
+    countEl.textContent = `${state.ticketPool.length} ticket${state.ticketPool.length !== 1 ? 's' : ''}`;
+    
+    // Clear invalid selections
+    poolState.selectedTickets = new Set(
+        [...poolState.selectedTickets].filter(id => 
+            state.ticketPool.some(t => t.id === id)
+        )
+    );
+    
+    // Update select all checkbox
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = filteredTickets.length > 0 && 
+            filteredTickets.every(t => poolState.selectedTickets.has(t.id));
+    }
+    
+    // Update selection actions visibility
+    updatePoolSelectionActions();
+    
+    if (filteredTickets.length === 0) {
+        container.innerHTML = `
+            <div class="pool-empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                    <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
+                </svg>
+                <p>${poolState.searchTerm ? 'No matching tickets' : 'No tickets in pool'}</p>
+                <span>${poolState.searchTerm ? 'Try a different search term' : 'Import tickets from Excel to add them here'}</span>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = filteredTickets.map(ticket => renderPoolTicketCard(ticket)).join('');
+    
+    // Add click handlers
+    container.querySelectorAll('.pool-ticket-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.type !== 'checkbox') {
+                const checkbox = card.querySelector('.pool-ticket-checkbox');
+                checkbox.checked = !checkbox.checked;
+                togglePoolTicketSelection(card.dataset.id, checkbox.checked);
+            }
+        });
+        
+        card.querySelector('.pool-ticket-checkbox').addEventListener('change', (e) => {
+            togglePoolTicketSelection(card.dataset.id, e.target.checked);
+        });
+    });
+}
+
+function renderPoolTicketCard(ticket) {
+    const isSelected = poolState.selectedTickets.has(ticket.id);
+    
+    return `
+        <div class="pool-ticket-card ${isSelected ? 'selected' : ''}" data-id="${ticket.id}">
+            <input type="checkbox" class="pool-ticket-checkbox" ${isSelected ? 'checked' : ''}>
+            <div class="pool-ticket-info">
+                <div class="pool-ticket-header">
+                    <span class="pool-ticket-id">${escapeHtml(ticket.ticketId)}</span>
+                    <span class="pool-ticket-priority ${ticket.priority}">${ticket.priority}</span>
+                </div>
+                <div class="pool-ticket-name" title="${escapeHtml(ticket.name)}">${escapeHtml(ticket.name)}</div>
+                <div class="pool-ticket-meta">
+                    <span>👤 ${escapeHtml(ticket.tester)}</span>
+                    <span>⏱️ ${ticket.estimatedHours}h</span>
+                    <span class="pool-ticket-status">${formatStatus(ticket.status)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function togglePoolTicketSelection(ticketId, isSelected) {
+    if (isSelected) {
+        poolState.selectedTickets.add(ticketId);
+    } else {
+        poolState.selectedTickets.delete(ticketId);
+    }
+    
+    // Update card visual state
+    const card = document.querySelector(`.pool-ticket-card[data-id="${ticketId}"]`);
+    if (card) {
+        card.classList.toggle('selected', isSelected);
+    }
+    
+    // Update select all checkbox
+    const selectAllCheckbox = document.getElementById('selectAllPool');
+    const filteredTickets = getFilteredPoolTickets();
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = filteredTickets.length > 0 && 
+            filteredTickets.every(t => poolState.selectedTickets.has(t.id));
+    }
+    
+    updatePoolSelectionActions();
+}
+
+function toggleSelectAllPool(selectAll) {
+    const filteredTickets = getFilteredPoolTickets();
+    
+    if (selectAll) {
+        filteredTickets.forEach(t => poolState.selectedTickets.add(t.id));
+    } else {
+        filteredTickets.forEach(t => poolState.selectedTickets.delete(t.id));
+    }
+    
+    renderTicketPool();
+}
+
+function getFilteredPoolTickets() {
+    if (!poolState.searchTerm) return state.ticketPool;
+    
+    return state.ticketPool.filter(ticket => 
+        ticket.ticketId.toLowerCase().includes(poolState.searchTerm) ||
+        ticket.name.toLowerCase().includes(poolState.searchTerm) ||
+        ticket.tester.toLowerCase().includes(poolState.searchTerm)
+    );
+}
+
+function updatePoolSelectionActions() {
+    const actionsEl = document.getElementById('poolSelectionActions');
+    const countEl = document.getElementById('selectedPoolCount');
+    
+    if (poolState.selectedTickets.size > 0) {
+        actionsEl.style.display = 'flex';
+        countEl.textContent = `${poolState.selectedTickets.size} selected`;
+    } else {
+        actionsEl.style.display = 'none';
+    }
+}
+
+function assignSelectedToWeek(weekType) {
+    if (poolState.selectedTickets.size === 0) {
+        showToast('No tickets selected', 'error');
+        return;
+    }
+    
+    const selectedIds = [...poolState.selectedTickets];
+    let addedCount = 0;
+    let duplicateCount = 0;
+    
+    // Get existing ticket IDs in target week
+    const targetTickets = weekType === 'current' ? state.currentWeekTickets : state.nextWeekPlanTickets;
+    const existingIds = new Set(targetTickets.map(t => t.ticketId.toLowerCase().trim()));
+    
+    selectedIds.forEach(id => {
+        const ticketIndex = state.ticketPool.findIndex(t => t.id === id);
+        if (ticketIndex !== -1) {
+            const poolTicket = state.ticketPool[ticketIndex];
+            
+            // Check if ticket ID already exists in target week
+            if (existingIds.has(poolTicket.ticketId.toLowerCase().trim())) {
+                duplicateCount++;
+                return;
+            }
+            
+            // Create new ticket for the week
+            const newTicket = {
+                ...poolTicket,
+                id: generateId(), // Generate new ID for week ticket
+                carriedOver: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Add to target week
+            if (weekType === 'current') {
+                state.currentWeekTickets.push(newTicket);
+            } else {
+                state.nextWeekPlanTickets.push(newTicket);
+            }
+            
+            // Remove from pool
+            state.ticketPool.splice(ticketIndex, 1);
+            addedCount++;
+        }
+    });
+    
+    // Clear selections
+    poolState.selectedTickets.clear();
+    
+    // Save and re-render
+    saveToStorage();
+    renderTicketPool();
+    renderTickets();
+    
+    const weekName = weekType === 'current' ? 'Current Week' : 'Next Week';
+    let message = `Added ${addedCount} ticket${addedCount !== 1 ? 's' : ''} to ${weekName}`;
+    if (duplicateCount > 0) {
+        message += ` (${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} skipped)`;
+    }
+    showToast(message, 'success');
+}
+
+function deleteSelectedFromPool() {
+    if (poolState.selectedTickets.size === 0) {
+        showToast('No tickets selected', 'error');
+        return;
+    }
+    
+    const count = poolState.selectedTickets.size;
+    
+    if (!confirm(`Are you sure you want to delete ${count} ticket${count !== 1 ? 's' : ''} from the pool?`)) {
+        return;
+    }
+    
+    // Remove selected tickets
+    state.ticketPool = state.ticketPool.filter(t => !poolState.selectedTickets.has(t.id));
+    
+    // Clear selections
+    poolState.selectedTickets.clear();
+    
+    // Save and re-render
+    saveToStorage();
+    renderTicketPool();
+    
+    showToast(`Deleted ${count} ticket${count !== 1 ? 's' : ''} from pool`, 'success');
+}
+
+// Initialize ticket pool when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeTicketPool);
 
 // =====================
 // Daily Planning Functionality

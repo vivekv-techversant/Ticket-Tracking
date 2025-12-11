@@ -121,6 +121,72 @@
         </header>
 
         <main class="main-content">
+            <!-- Ticket Pool Section -->
+            <section class="ticket-pool-section" id="ticketPoolSection">
+                <div class="pool-header">
+                    <div class="pool-title">
+                        <span class="pool-icon">📦</span>
+                        <h2>Ticket Pool</h2>
+                        <span class="pool-count" id="poolTicketCount">0 tickets</span>
+                    </div>
+                    <div class="pool-actions">
+                        <button class="pool-toggle-btn" id="togglePoolBtn" title="Toggle Ticket Pool">
+                            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="pool-content" id="poolContent">
+                    <div class="pool-toolbar">
+                        <div class="pool-search">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="M21 21l-4.35-4.35"/>
+                            </svg>
+                            <input type="text" id="poolSearchInput" placeholder="Search tickets...">
+                        </div>
+                        <div class="pool-selection-actions" id="poolSelectionActions" style="display: none;">
+                            <span class="selected-count" id="selectedPoolCount">0 selected</span>
+                            <button class="pool-action-btn" id="assignToCurrentWeek" title="Add to Current Week">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 5v14M5 12h14"/>
+                                </svg>
+                                Current Week
+                            </button>
+                            <button class="pool-action-btn" id="assignToNextWeek" title="Add to Next Week">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 5v14M5 12h14"/>
+                                </svg>
+                                Next Week
+                            </button>
+                            <button class="pool-action-btn danger" id="deleteFromPool" title="Delete Selected">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                        <div class="pool-bulk-select">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="selectAllPool">
+                                <span>Select All</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="pool-tickets" id="poolTickets">
+                        <div class="pool-empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                                <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
+                            </svg>
+                            <p>No tickets in pool</p>
+                            <span>Import tickets from Excel to add them here</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Bleed Over Section (Top) -->
             <div class="bleed-over-section bleed-over-top" id="bleedOverSectionTop">
                 <div class="bleed-over-content">
@@ -576,13 +642,6 @@
                         Download Template
                     </button>
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="importWeek">Import to Week</label>
-                <select id="importWeek">
-                    <option value="current">Current Week</option>
-                    <option value="nextWeekPlan">Next Week</option>
-                </select>
             </div>
             <div class="file-upload-area" id="fileUploadArea">
                 <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" hidden>
