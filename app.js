@@ -162,6 +162,9 @@ function saveToStorage() {
     updates[`/capacity/${nextCapacityKey}`] = state.nextWeekCapacity;
     updates[`/ticketPool`] = state.ticketPool.length > 0 ? state.ticketPool : null;
     
+    console.log('Attempting to save updates:', Object.keys(updates));
+    console.log('Ticket pool to save:', state.ticketPool);
+    
     database.ref().update(updates)
         .then(() => {
             console.log('Data saved successfully. Pool has', state.ticketPool.length, 'tickets');
@@ -170,6 +173,11 @@ function saveToStorage() {
             console.error('Error saving to Firebase:', error);
             showToast('Error saving data. Please try again.', 'error');
         });
+    
+    // Also try saving ticket pool separately to ensure it works
+    database.ref('/ticketPool').set(state.ticketPool.length > 0 ? state.ticketPool : null)
+        .then(() => console.log('Ticket pool saved separately'))
+        .catch(err => console.error('Error saving ticket pool separately:', err));
     
     // Save view preferences locally (these are user-specific)
     localStorage.setItem('viewPreferences', JSON.stringify({
@@ -2975,6 +2983,9 @@ function updateImportPreview() {
 }
 
 function confirmImport() {
+    console.log('=== CONFIRM IMPORT CALLED ===');
+    console.log('New tickets to import:', importState.newTickets.length);
+    
     if (importState.newTickets.length === 0) {
         showToast('No valid tickets to import', 'error');
         return;
@@ -2994,14 +3005,18 @@ function confirmImport() {
             createdAt: new Date().toISOString()
         };
         state.ticketPool.push(ticket);
+        console.log('Added ticket to pool:', ticket.ticketId);
     });
     
     const count = importState.newTickets.length;
     const skipped = importState.duplicates.length + importState.invalidRows.length;
     
+    console.log('Pool now has', state.ticketPool.length, 'tickets');
+    console.log('About to call saveToStorage()...');
+    
     // Save and render
-    console.log('Saving ticket pool with', state.ticketPool.length, 'tickets');
     saveToStorage();
+    console.log('saveToStorage() called');
     renderTicketPool();
     
     closeImportModal();
