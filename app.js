@@ -215,6 +215,7 @@ function loadFromStorage() {
         database.ref(`/capacity/${nextCapacityKey}`).once('value'),
         database.ref(`/ticketPool`).once('value')
     ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap, poolSnap]) => {
+        console.log('=== LOADING DATA FROM FIREBASE ===');
         state.currentWeekTickets = currentSnap.val() || [];
         state.nextWeekPlanTickets = nextSnap.val() || [];
         state.currentWeekCapacity = currentCapSnap.val() || {};
@@ -222,10 +223,18 @@ function loadFromStorage() {
         
         // Firebase returns object with numeric keys for arrays, convert back to array
         const poolData = poolSnap.val();
+        console.log('Raw pool data from Firebase:', poolData);
+        console.log('Pool data type:', typeof poolData);
+        
         if (poolData && typeof poolData === 'object' && !Array.isArray(poolData)) {
             state.ticketPool = Object.values(poolData);
+            console.log('Converted object to array');
+        } else if (Array.isArray(poolData)) {
+            state.ticketPool = poolData;
+            console.log('Pool data was already an array');
         } else {
-            state.ticketPool = poolData || [];
+            state.ticketPool = [];
+            console.log('Pool data was null/empty, using empty array');
         }
         console.log('Loaded ticket pool with', state.ticketPool.length, 'tickets');
         
