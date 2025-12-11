@@ -3149,9 +3149,15 @@ function saveTicketPool() {
 }
 
 function renderTicketPool() {
+    console.log('=== renderTicketPool() called ===');
+    console.log('state.ticketPool:', state.ticketPool);
+    console.log('state.ticketPool.length:', state.ticketPool ? state.ticketPool.length : 'undefined');
+    
     const container = document.getElementById('poolTickets');
     const countEl = document.getElementById('poolTicketCount');
     const selectAllCheckbox = document.getElementById('selectAllPool');
+    
+    console.log('DOM elements found:', { container: !!container, countEl: !!countEl, selectAllCheckbox: !!selectAllCheckbox });
     
     // Filter tickets based on search
     let filteredTickets = state.ticketPool;
