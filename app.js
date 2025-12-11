@@ -2721,8 +2721,9 @@ function saveDailyPlan() {
     const yesterdayHours = parseFloat(document.getElementById('yesterdayHours').value) || 0;
     const yesterdayNotes = document.getElementById('yesterdayNotes').value.trim();
     const yesterdayStatus = document.getElementById('yesterdayStatus').value;
+    const statusChanged = yesterdayStatus !== ticket.status;
     
-    if (yesterdayHours > 0 || yesterdayNotes) {
+    if (yesterdayHours > 0 || yesterdayNotes || statusChanged) {
         const yesterdayKey = getDailyPlanKey(ticket.id, yesterday);
         const existingYesterdayIndex = ticket.dailyPlans.findIndex(p => p.key === yesterdayKey && p.type === 'actual');
         
