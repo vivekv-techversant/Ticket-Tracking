@@ -187,6 +187,13 @@ function saveToStorage() {
 }
 
 function loadFromStorage() {
+    console.log('loadFromStorage() called');
+    
+    if (!state.currentWeekStart) {
+        console.error('currentWeekStart is not set!');
+        return;
+    }
+    
     const nextWeekStart = new Date(state.currentWeekStart);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
