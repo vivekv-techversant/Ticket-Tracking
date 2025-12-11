@@ -40,12 +40,17 @@ const serviceAccount = {
 let database = null;
 if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
     try {
+        // Use custom database URL if provided, otherwise use default format
+        const databaseURL = process.env.FIREBASE_DATABASE_URL || 
+            `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`;
+        
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`
+            databaseURL: databaseURL
         });
         database = admin.database();
         console.log('Firebase initialized successfully');
+        console.log('Database URL:', databaseURL);
     } catch (error) {
         console.error('Firebase initialization error:', error.message);
     }
