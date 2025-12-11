@@ -3052,6 +3052,7 @@ let poolState = {
 
 function initializeTicketPool() {
     const toggleBtn = document.getElementById('togglePoolBtn');
+    const saveBtn = document.getElementById('savePoolBtn');
     const searchInput = document.getElementById('poolSearchInput');
     const selectAllCheckbox = document.getElementById('selectAllPool');
     const assignCurrentBtn = document.getElementById('assignToCurrentWeek');
@@ -3060,6 +3061,10 @@ function initializeTicketPool() {
     
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleTicketPool);
+    }
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveTicketPool);
     }
     
     if (searchInput) {
@@ -3091,6 +3096,20 @@ function initializeTicketPool() {
 function toggleTicketPool() {
     const section = document.getElementById('ticketPoolSection');
     section.classList.toggle('collapsed');
+}
+
+function saveTicketPool() {
+    console.log('Manual save triggered. Pool has', state.ticketPool.length, 'tickets');
+    
+    database.ref('/ticketPool').set(state.ticketPool.length > 0 ? state.ticketPool : null)
+        .then(() => {
+            console.log('Ticket pool saved manually');
+            showToast(`Saved ${state.ticketPool.length} tickets to pool`, 'success');
+        })
+        .catch(err => {
+            console.error('Error saving ticket pool:', err);
+            showToast('Error saving pool. Please try again.', 'error');
+        });
 }
 
 function renderTicketPool() {

@@ -518,6 +518,31 @@ body::before {
     border-radius: var(--radius-sm);
 }
 
+.pool-save-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--accent-green);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--bg-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.pool-save-btn:hover {
+    background: #5eead4;
+}
+
+.pool-save-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
 .pool-toggle-btn {
     background: transparent;
     border: none;
