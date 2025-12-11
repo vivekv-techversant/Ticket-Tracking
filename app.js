@@ -2837,7 +2837,7 @@ function processImportData(data) {
     }
     
     // Check required columns
-    const requiredFields = ['ticketId', 'name', 'tester', 'estimatedHours'];
+    const requiredFields = ['ticketId', 'name', 'tester', 'status'];
     const missingFields = requiredFields.filter(f => !columnMap[f]);
     
     if (missingFields.length > 0) {
@@ -2856,9 +2856,9 @@ function processImportData(data) {
         const status = columnMap.status ? normalizeStatus(String(row[columnMap.status] || '').trim()) : 'nil';
         const priority = columnMap.priority ? normalizePriority(String(row[columnMap.priority] || '').trim()) : 'medium';
         
-        // Validate required fields (estimated hours now defaults to 1 if missing)
-        if (!ticketId || !name || !tester) {
-            importState.invalidRows.push({ row: index + 2, reason: 'Missing Ticket ID, Name, or Tester' });
+        // Validate required fields
+        if (!ticketId || !name || !tester || !status) {
+            importState.invalidRows.push({ row: index + 2, reason: 'Missing Ticket ID, Name, Tester, or Status' });
             return;
         }
         
