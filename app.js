@@ -194,13 +194,16 @@ function loadFromStorage() {
         return;
     }
     
-    const nextWeekStart = new Date(state.currentWeekStart);
-    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
-    
-    const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
-    const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
-    const currentCapacityKey = getFirebaseKey(state.currentWeekStart, 'capacity');
-    const nextCapacityKey = getFirebaseKey(nextWeekStart, 'capacity');
+    try {
+        const nextWeekStart = new Date(state.currentWeekStart);
+        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+        
+        const currentWeekKey = getFirebaseKey(state.currentWeekStart, 'week');
+        const nextWeekKey = getFirebaseKey(nextWeekStart, 'week');
+        const currentCapacityKey = getFirebaseKey(state.currentWeekStart, 'capacity');
+        const nextCapacityKey = getFirebaseKey(nextWeekStart, 'capacity');
+        
+        console.log('Loading from Firebase keys:', { currentWeekKey, nextWeekKey, currentCapacityKey, nextCapacityKey });
     
     // Load view preferences from localStorage (user-specific)
     const viewPreferences = localStorage.getItem('viewPreferences');
