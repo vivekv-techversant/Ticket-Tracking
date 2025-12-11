@@ -47,7 +47,7 @@ const STATUS_CATEGORIES = {
     },
     'dev': {
         name: 'Dev',
-        statuses: ['approved-for-live', 'moved-to-live', 'in-progress', 'qc-review-fail', 'tested-awaiting-fixes', 'nil']
+        statuses: ['approved-for-live', 'moved-to-live', 'in-progress', 'qc-review-fail', 'tested-awaiting-fixes', 'nil', 'start-code-review', 'code-review-failed', 'hold-pending']
     },
     'closed': {
         name: 'Closed',
@@ -658,7 +658,7 @@ function renderTicketsByGroup(tickets, weekType, container, prefixHtml = '') {
         const priorityOrder = ['critical', 'high', 'medium', 'low'];
         sortedKeys.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
     } else if (groupBy === 'status') {
-        const statusOrder = ['in-progress', 'qc-testing', 'qc-testing-in-progress', 'testing-in-progress', 'bis-testing', 'qc-testing-hold', 'qc-review-fail', 'tested-awaiting-fixes', 'approved-for-live', 'moved-to-live', 'closed', 'nil'];
+        const statusOrder = ['in-progress', 'start-code-review', 'qc-testing', 'qc-testing-in-progress', 'testing-in-progress', 'bis-testing', 'qc-testing-hold', 'qc-review-fail', 'code-review-failed', 'tested-awaiting-fixes', 'hold-pending', 'approved-for-live', 'moved-to-live', 'closed', 'nil'];
         sortedKeys.sort((a, b) => statusOrder.indexOf(a) - statusOrder.indexOf(b));
     } else if (groupBy === 'category') {
         const categoryOrder = ['qa-india', 'bis-qa', 'dev', 'closed'];
@@ -717,12 +717,15 @@ function renderSwimLanes(tickets, weekType, container, groupBy, prefixHtml = '')
         lanes = [
             { key: 'nil', name: 'Nil' },
             { key: 'in-progress', name: 'In Progress' },
+            { key: 'start-code-review', name: 'Start Code Review' },
             { key: 'qc-testing', name: 'QC Testing' },
             { key: 'qc-testing-in-progress', name: 'QC Testing In Progress' },
             { key: 'qc-testing-hold', name: 'QC Testing Hold' },
             { key: 'qc-review-fail', name: 'QC Review Fail' },
+            { key: 'code-review-failed', name: 'Code Review Failed' },
             { key: 'testing-in-progress', name: 'Testing In Progress' },
             { key: 'tested-awaiting-fixes', name: 'Tested - Awaiting Fixes' },
+            { key: 'hold-pending', name: 'Hold/Pending' },
             { key: 'bis-testing', name: 'BIS Testing' },
             { key: 'approved-for-live', name: 'Approved for Live' },
             { key: 'moved-to-live', name: 'Moved to Live' },
@@ -2318,10 +2321,16 @@ function exportAllDataToExcel() {
     // Create workbook
     const wb = XLSX.utils.book_new();
     
-    // ===== Sheet 1: Current Week Tickets =====
-    const currentWeekHeaders = ['Week', 'Ticket ID', 'Summary', 'Tester', 'Status', 'Responsibility', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
-    const currentWeekRows = state.currentWeekTickets.map(ticket => ({
-        'Week': formatWeekRange(state.currentWeekStart),
+    // Common headers for ticket sheets
+    const ticketHeaders = ['Week', 'Ticket ID', 'Summary', 'Tester', 'Status', 'Responsibility', 'Priority', 'Estimated Hours', 'Actual Hours', 'Remaining Hours', 'Carried Over', 'Moved to Next Week'];
+    const ticketColWidths = [
+        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
+        { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
+    ];
+    
+    // Helper function to map ticket to row
+    const mapTicketToRow = (ticket, weekStart) => ({
+        'Week': formatWeekRange(weekStart),
         'Ticket ID': ticket.ticketId,
         'Summary': ticket.name,
         'Tester': ticket.tester,
@@ -2333,39 +2342,33 @@ function exportAllDataToExcel() {
         'Remaining Hours': Math.max(0, ticket.estimatedHours - ticket.actualHours),
         'Carried Over': ticket.carriedOver ? 'Yes' : 'No',
         'Moved to Next Week': ticket.carriedToNextWeek ? 'Yes' : 'No'
-    }));
+    });
     
-    const wsCurrentWeek = XLSX.utils.json_to_sheet(currentWeekRows, { header: currentWeekHeaders });
-    wsCurrentWeek['!cols'] = [
-        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
-        { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
+    // ===== Sheet 1: All Weeks Combined =====
+    const allWeeksRows = [
+        ...state.currentWeekTickets.map(ticket => mapTicketToRow(ticket, state.currentWeekStart)),
+        ...state.nextWeekPlanTickets.map(ticket => mapTicketToRow(ticket, nextWeekStart))
     ];
+    
+    const wsAllWeeks = XLSX.utils.json_to_sheet(allWeeksRows, { header: ticketHeaders });
+    wsAllWeeks['!cols'] = ticketColWidths;
+    XLSX.utils.book_append_sheet(wb, wsAllWeeks, 'All Weeks');
+    
+    // ===== Sheet 2: Current Week Tickets =====
+    const currentWeekRows = state.currentWeekTickets.map(ticket => mapTicketToRow(ticket, state.currentWeekStart));
+    
+    const wsCurrentWeek = XLSX.utils.json_to_sheet(currentWeekRows, { header: ticketHeaders });
+    wsCurrentWeek['!cols'] = ticketColWidths;
     XLSX.utils.book_append_sheet(wb, wsCurrentWeek, `Current Week (${formatDate(state.currentWeekStart)})`);
     
-    // ===== Sheet 2: Next Week Tickets =====
-    const nextWeekRows = state.nextWeekPlanTickets.map(ticket => ({
-        'Week': formatWeekRange(nextWeekStart),
-        'Ticket ID': ticket.ticketId,
-        'Summary': ticket.name,
-        'Tester': ticket.tester,
-        'Status': formatStatus(ticket.status),
-        'Responsibility': getCategoryName(getStatusCategory(ticket.status)),
-        'Priority': ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1),
-        'Estimated Hours': ticket.estimatedHours,
-        'Actual Hours': ticket.actualHours,
-        'Remaining Hours': Math.max(0, ticket.estimatedHours - ticket.actualHours),
-        'Carried Over': ticket.carriedOver ? 'Yes' : 'No',
-        'Moved to Next Week': ticket.carriedToNextWeek ? 'Yes' : 'No'
-    }));
+    // ===== Sheet 3: Next Week Tickets =====
+    const nextWeekRows = state.nextWeekPlanTickets.map(ticket => mapTicketToRow(ticket, nextWeekStart));
     
-    const wsNextWeek = XLSX.utils.json_to_sheet(nextWeekRows, { header: currentWeekHeaders });
-    wsNextWeek['!cols'] = [
-        { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
-        { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 18 }
-    ];
+    const wsNextWeek = XLSX.utils.json_to_sheet(nextWeekRows, { header: ticketHeaders });
+    wsNextWeek['!cols'] = ticketColWidths;
     XLSX.utils.book_append_sheet(wb, wsNextWeek, `Next Week (${formatDate(nextWeekStart)})`);
     
-    // ===== Sheet 3: Current Week Tester Capacity =====
+    // ===== Sheet 5: Current Week Tester Capacity =====
     const currentCapacityHeaders = ['Tester Name', 'Total Hours', 'Planned Hours', 'Unplanned Hours', 'Utilization %'];
     const currentCapacityRows = TESTERS.map(tester => {
         const totalHours = state.currentWeekCapacity[tester]?.totalHours ?? 40;
@@ -2388,7 +2391,7 @@ function exportAllDataToExcel() {
     ];
     XLSX.utils.book_append_sheet(wb, wsCurrentCapacity, 'Current Week Capacity');
     
-    // ===== Sheet 4: Next Week Tester Capacity =====
+    // ===== Sheet 6: Next Week Tester Capacity =====
     const nextCapacityRows = TESTERS.map(tester => {
         const totalHours = state.nextWeekCapacity[tester]?.totalHours ?? 40;
         const plannedHours = calculateTesterPlannedHours(tester, 'nextWeekPlan');
@@ -2410,7 +2413,7 @@ function exportAllDataToExcel() {
     ];
     XLSX.utils.book_append_sheet(wb, wsNextCapacity, 'Next Week Capacity');
     
-    // ===== Sheet 5: Daily Log History =====
+    // ===== Sheet 7: Daily Log History =====
     const dailyLogHeaders = ['Date', 'Type', 'Ticket ID', 'Summary', 'Tester', 'Hours', 'Notes/Tasks', 'Status/Goal'];
     const dailyLogRows = [];
     
@@ -2470,7 +2473,7 @@ function exportAllDataToExcel() {
         XLSX.utils.book_append_sheet(wb, wsDailyLog, 'Daily Log History');
     }
     
-    // ===== Sheet 6: Summary =====
+    // ===== Sheet 8: Summary =====
     const currentStats = calculateStats(state.currentWeekTickets);
     const nextStats = calculateStats(state.nextWeekPlanTickets);
     
