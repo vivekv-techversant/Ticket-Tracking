@@ -217,6 +217,7 @@ function loadFromStorage() {
     }
     
     // Load data from Firebase
+    console.log('Starting Firebase Promise.all...');
     Promise.all([
         database.ref(`/tickets/${currentWeekKey}`).once('value'),
         database.ref(`/tickets/${nextWeekKey}`).once('value'),
@@ -224,7 +225,7 @@ function loadFromStorage() {
         database.ref(`/capacity/${nextCapacityKey}`).once('value'),
         database.ref(`/ticketPool`).once('value')
     ]).then(([currentSnap, nextSnap, currentCapSnap, nextCapSnap, poolSnap]) => {
-        console.log('=== LOADING DATA FROM FIREBASE ===');
+        console.log('=== LOADING DATA FROM FIREBASE - SUCCESS ===');
         state.currentWeekTickets = currentSnap.val() || [];
         state.nextWeekPlanTickets = nextSnap.val() || [];
         state.currentWeekCapacity = currentCapSnap.val() || {};
@@ -258,10 +259,19 @@ function loadFromStorage() {
         });
         
         // Re-render after loading
-        updateWeekDates();
-        updateViewButtons();
-        renderTickets();
-        renderTicketPool();
+        console.log('About to render...');
+        try {
+            updateWeekDates();
+            console.log('updateWeekDates done');
+            updateViewButtons();
+            console.log('updateViewButtons done');
+            renderTickets();
+            console.log('renderTickets done');
+            renderTicketPool();
+            console.log('renderTicketPool done');
+        } catch (renderError) {
+            console.error('Error during rendering:', renderError);
+        }
     }).catch(error => {
         console.error('Error loading from Firebase:', error);
         showToast('Error loading data. Please refresh the page.', 'error');
@@ -302,6 +312,7 @@ function setupRealtimeListeners() {
     database.ref(`/tickets/${nextWeekKey}`).off();
     database.ref(`/capacity/${currentCapacityKey}`).off();
     database.ref(`/capacity/${nextCapacityKey}`).off();
+    database.ref(`/ticketPool`).off();
     
     // Set up new listeners
     database.ref(`/tickets/${currentWeekKey}`).on('value', (snapshot) => {
@@ -312,6 +323,20 @@ function setupRealtimeListeners() {
     database.ref(`/tickets/${nextWeekKey}`).on('value', (snapshot) => {
         state.nextWeekPlanTickets = snapshot.val() || [];
         renderTickets();
+    });
+    
+    // Real-time listener for ticket pool
+    database.ref(`/ticketPool`).on('value', (snapshot) => {
+        const poolData = snapshot.val();
+        if (poolData && typeof poolData === 'object' && !Array.isArray(poolData)) {
+            state.ticketPool = Object.values(poolData);
+        } else if (Array.isArray(poolData)) {
+            state.ticketPool = poolData;
+        } else {
+            state.ticketPool = [];
+        }
+        console.log('Realtime: ticketPool updated with', state.ticketPool.length, 'tickets');
+        renderTicketPool();
     });
     
     database.ref(`/capacity/${currentCapacityKey}`).on('value', (snapshot) => {
