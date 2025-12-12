@@ -1422,6 +1422,12 @@ window.moveTicket = function(week, index) {
     const ticket = state.currentWeekTickets[index];
     if (!ticket) return;
     
+    // Prevent copying closed tickets forward
+    if (ticket.status === 'closed') {
+        showToast('Closed tickets cannot be copied to Next Week', 'error');
+        return;
+    }
+    
     // Check if already carried to next week
     if (ticket.carriedToNextWeek) {
         showToast('This ticket has already been copied to Next Week', 'info');
