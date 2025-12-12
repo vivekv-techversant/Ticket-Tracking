@@ -1223,7 +1223,8 @@ function updateStats() {
     const nextUnplannedHours = nextTotalCapacity - nextPlanStats.totalHours;
     
     elements.nextWeekPlanTickets.textContent = state.nextWeekPlanTickets.length;
-    elements.nextWeekPlanHours.textContent = `${nextPlanStats.totalHours}h`;
+    // Show planned, actual, and expected (capacity) together
+    elements.nextWeekPlanHours.textContent = `${nextPlanStats.totalHours}h (actual ${nextPlanStats.actualHours}h / expected ${nextTotalCapacity}h)`;
     
     const nextWeekPlanUnplannedEl = document.getElementById('nextWeekPlanUnplannedHours');
     if (nextWeekPlanUnplannedEl) {
