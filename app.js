@@ -94,6 +94,9 @@ const state = {
     }
 };
 
+// One-time repair flag to avoid repeating status sync for carried tickets
+let carriedStatusRepairDone = false;
+
 // Utility Functions
 function getWeekStart(date) {
     const d = new Date(date);
@@ -255,6 +258,9 @@ function loadFromStorage() {
                 state.nextWeekCapacity[tester] = { totalHours: 40 };
             }
         });
+        
+        // Fix already carried tickets that lost their status during copy
+        repairCarriedTicketStatuses();
         
         // Re-render after loading
         updateWeekDates();
@@ -1389,6 +1395,35 @@ function updateTicket(ticketData, week, index, reestimationNote = null) {
     }
 }
 
+// Repair already-carried tickets whose status was reset to 'nil'
+function repairCarriedTicketStatuses() {
+    if (carriedStatusRepairDone) return;
+    
+    let updated = false;
+    
+    state.nextWeekPlanTickets = state.nextWeekPlanTickets.map(ticket => {
+        if (ticket && ticket.carriedOver && ticket.status === 'nil') {
+            const source = state.currentWeekTickets.find(t =>
+                (ticket.originalTicketId && t.id === ticket.originalTicketId) ||
+                t.ticketId === ticket.ticketId
+            );
+            
+            if (source && source.status) {
+                updated = true;
+                return { ...ticket, status: source.status };
+            }
+        }
+        return ticket;
+    });
+    
+    carriedStatusRepairDone = true;
+    
+    if (updated) {
+        saveToStorage();
+        showToast('Updated carried tickets to keep their status', 'success');
+    }
+}
+
 window.editTicket = function(week, index) {
     const tickets = (week === 'current' || week === 'next') ? state.currentWeekTickets : state.nextWeekPlanTickets;
     const ticket = tickets[index];
@@ -1451,7 +1486,7 @@ window.moveTicket = function(week, index) {
         tester: ticket.tester,
         estimatedHours: remainingHours, // Remaining hours become the new estimate
         actualHours: 0, // Reset actual hours for the new week
-        status: 'nil', // Reset status for the new week
+        status: ticket.status, // Carry forward current status
         priority: ticket.priority,
         carriedOver: true, // Mark as carried over from previous week
         carriedFromWeek: 'currentWeek',
@@ -1512,7 +1547,7 @@ function transferIncompleteTasks() {
                 tester: ticket.tester,
                 estimatedHours: remainingHours,
                 actualHours: 0,
-                status: 'nil',
+                status: ticket.status,
                 priority: ticket.priority,
                 carriedOver: true,
                 originalTicketId: ticket.id,
