@@ -1204,7 +1204,7 @@ function updateStats() {
     const currentUnplannedHours = currentTotalCapacity - currentStats.totalHours;
     
     elements.nextTotalTickets.textContent = state.currentWeekTickets.length;
-    elements.nextTotalHours.textContent = `${currentStats.totalHours}h`;
+    elements.nextTotalHours.textContent = `${currentStats.totalHours}h (actual ${currentStats.actualHours}h / expected ${currentTotalCapacity}h)`;
     elements.nextCarriedHours.textContent = `${carriedHours}h`;
     
     const nextUnplannedEl = document.getElementById('nextUnplannedHours');
